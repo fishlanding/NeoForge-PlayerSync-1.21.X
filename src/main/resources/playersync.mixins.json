@@ -5,7 +5,9 @@
   "mixins": [
   ],
   "client": [
-    "DeltaTrackerTimerMixin"
+    "DeltaTrackerTimerMixin",
+    "MinecraftMixin",
+    "accessor.BlockableEventLoopAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

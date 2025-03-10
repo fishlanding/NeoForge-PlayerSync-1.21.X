@@ -2,8 +2,11 @@ package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.command.TickDeltaCommand;
+import net.doodlechaos.playersync.command.TimelineCommands;
 import net.minecraft.commands.CommandSourceStack;
+import net.neoforged.bus.api.Event;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -27,9 +30,10 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 public class PlayerSync
 {
     public static final String MOD_ID = "playersync";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public static float myTickDelta = 0;
+    public static boolean activateTickLockstep = false;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
     {
@@ -40,7 +44,6 @@ public class PlayerSync
         // Note that this is necessary if and only if we want *this* class (ExampleMod) to respond directly to events.
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
-
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
 
@@ -54,8 +57,17 @@ public class PlayerSync
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
 
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
+        TimelineCommands.registerTimelineCommands(dispatcher);
 
         LOGGER.info("Done registering commands");
+    }
+
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent.Post event){
+
+        // Your code here – this runs after the server tick has finished.
+        //LOGGER.info("Detected end of server tick");
+
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

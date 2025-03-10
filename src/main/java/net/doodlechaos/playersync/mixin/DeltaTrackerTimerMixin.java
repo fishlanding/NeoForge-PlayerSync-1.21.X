@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.PlayerSync;
+import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.client.DeltaTracker;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -19,8 +20,12 @@ public class DeltaTrackerTimerMixin {
      */
     @Inject(method = "getGameTimeDeltaPartialTick", at = @At("HEAD"), cancellable = true)
     private void onGetGameTimeDeltaPartialTick(boolean runsNormally, CallbackInfoReturnable<Float> cir) {
+
+        if(!SyncTimeline.isPlaybackEnabled())
+            return;
+
         // Retrieve the custom tick delta from your mod.
-        float customDelta = PlayerSync.myTickDelta;
+        float customDelta = PlayerSync.myTickDelta; //SyncTimeline.getTickDelta();
         // If customDelta is set to a valid value (here we assume a value >= 0 means "override"),
         // then cancel the original method and set the return value.
         if (customDelta >= 0) {
