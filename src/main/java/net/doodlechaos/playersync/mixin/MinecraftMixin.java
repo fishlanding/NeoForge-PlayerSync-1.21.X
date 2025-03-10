@@ -17,11 +17,12 @@ public class MinecraftMixin {
     @Unique
     private boolean cachedRenderLevel;
 
+    //TODO: I'd like to get this called at 60fps to be my main loop. I think it is! when I limit the FPS in game.
     @ModifyVariable(method = "runTick(Z)V", at = @At("HEAD"), argsOnly = true)
     private boolean modifyRenderLevel(boolean renderLevel) {
         cachedRenderLevel = renderLevel;
         // Override the renderLevel parameter if tick lockstep is active
-        return PlayerSync.activateTickLockstep ? false : renderLevel;
+        return PlayerSync.tickLockstepEnabled ? false : renderLevel;
     }
 
     @Redirect(
@@ -32,11 +33,20 @@ public class MinecraftMixin {
             )
     )
     private int redirectAdvanceTime(DeltaTracker.Timer timer, long timeMillis, boolean renderLevel) {
-        if (!PlayerSync.activateTickLockstep)
+        if (!PlayerSync.tickLockstepEnabled)
             return timer.advanceTime(timeMillis, renderLevel);
+
+        //TODO: If playback is paused (And prevFrame == frame), just advance time like normal
+
+        //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
 
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
+
+        //TODO: Get the time from the sync timeline frame and determine if we need to tick
+
+        //Simulate inputs based on the keyframe
+
         // If the integrated server exists, tick it on its own thread and wait until it completes.
         if (server != null) {
             CountDownLatch latch = new CountDownLatch(1);
@@ -71,4 +81,7 @@ public class MinecraftMixin {
     private boolean restoreRenderLevel(boolean renderLevel) {
         return this.cachedRenderLevel;
     }
+
+    //At the end of runTick
+
 }

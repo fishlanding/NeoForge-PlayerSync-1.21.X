@@ -4,7 +4,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.command.TickDeltaCommand;
 import net.doodlechaos.playersync.command.TimelineCommands;
 import net.minecraft.commands.CommandSourceStack;
-import net.neoforged.bus.api.Event;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
@@ -33,7 +32,7 @@ public class PlayerSync
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public static float myTickDelta = 0;
-    public static boolean activateTickLockstep = false;
+    public static boolean tickLockstepEnabled = false;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
     {
