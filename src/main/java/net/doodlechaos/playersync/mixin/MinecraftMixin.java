@@ -1,13 +1,16 @@
 package net.doodlechaos.playersync.mixin;
 
-import net.doodlechaos.playersync.PlayerSync;
+import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.mixin.accessor.BlockableEventLoopAccessor;
+import net.doodlechaos.playersync.sync.SyncKeyframe;
+import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -17,12 +20,21 @@ public class MinecraftMixin {
     @Unique
     private boolean cachedRenderLevel;
 
+    //This is getting called at 60fps
+    @Inject(method = "runTick", at = @At("HEAD"), cancellable = true)
+    private void onStartRunTick(boolean renderLevel, CallbackInfo ci){
+
+    }
+
     //TODO: I'd like to get this called at 60fps to be my main loop. I think it is! when I limit the FPS in game.
     @ModifyVariable(method = "runTick(Z)V", at = @At("HEAD"), argsOnly = true)
     private boolean modifyRenderLevel(boolean renderLevel) {
+        if(!SyncTimeline.isLockstepMode())
+            return renderLevel;
+
+        // Cache and override the renderLevel parameter if tick lockstep is active
         cachedRenderLevel = renderLevel;
-        // Override the renderLevel parameter if tick lockstep is active
-        return PlayerSync.tickLockstepEnabled ? false : renderLevel;
+        return false;
     }
 
     @Redirect(
@@ -33,40 +45,50 @@ public class MinecraftMixin {
             )
     )
     private int redirectAdvanceTime(DeltaTracker.Timer timer, long timeMillis, boolean renderLevel) {
-        if (!PlayerSync.tickLockstepEnabled)
+
+        if(SyncTimeline.isPlaybackEnabled() && !SyncTimeline.isPlaybackDetatched()){
+            SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+            SyncTimeline.setPlayerFromKeyframe(keyframe);
+        }
+
+        if (!SyncTimeline.isLockstepMode())
             return timer.advanceTime(timeMillis, renderLevel);
 
-        //TODO: If playback is paused (And prevFrame == frame), just advance time like normal
+        SyncTimeline.updatePrevFrame();
+        if(SyncTimeline.isRecording() ||
+                (SyncTimeline.isPlaybackEnabled() && !SyncTimeline.isPlaybackPaused()))
+            SyncTimeline.advanceFrames(1); //DO this here so that the server and client are on the same frame
 
-        //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
+
 
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
 
-        //TODO: Get the time from the sync timeline frame and determine if we need to tick
+        //TODO: Simulate inputs based on the keyframe
 
-        //Simulate inputs based on the keyframe
-
-        // If the integrated server exists, tick it on its own thread and wait until it completes.
-        if (server != null) {
-            CountDownLatch latch = new CountDownLatch(1);
-            server.execute(() -> {
-                server.tickServer(()->false);
-                latch.countDown();
-            });
-            try {
-                // Block the main client thread until the server tick finishes.
-                latch.await();
-                //PlayerSync.LOGGER.info("After waiting for server to finish");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+        //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
+        if(SyncTimeline.isTickFrame() && SyncTimeline.hasFrameChanged()){
+            // If the integrated server exists, tick it on its own thread and wait until it completes.
+            if (server != null) {
+                CountDownLatch latch = new CountDownLatch(1);
+                server.execute(() -> {
+                    server.tickServer(()->false);
+                    latch.countDown();
+                });
+                try {
+                    // Block the main client thread until the server tick finishes.
+                    latch.await();
+                    //PlayerSync.LOGGER.info("After waiting for server to finish");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
+
+            ((BlockableEventLoopAccessor) mc).callRunAllTasks();
+            mc.tick();
         }
 
-        ((BlockableEventLoopAccessor) mc).callRunAllTasks();
-        mc.tick();
-
-        return 1;
+        return -1;
     }
 
     @ModifyVariable(
@@ -79,9 +101,21 @@ public class MinecraftMixin {
             ordinal = 0,
             argsOnly = true)
     private boolean restoreRenderLevel(boolean renderLevel) {
+        if(!SyncTimeline.isLockstepMode())
+            return renderLevel;
+
         return this.cachedRenderLevel;
     }
 
     //At the end of runTick
+    @Inject(method = "runTick", at = @At("TAIL"), cancellable = true)
+    private void onEndRunTick(boolean renderLevel, CallbackInfo ci){
+        if(SyncTimeline.isRecording()){
+            SyncTimeline.CreateKeyframe();
+        }
 
+        if(VideoRenderer.isRendering()){
+            VideoRenderer.CaptureFrame();
+        }
+    }
 }

@@ -11,7 +11,7 @@ public class TimelineCommands {
 
 
     public static void registerTimelineCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
+/*        dispatcher.register(
                 Commands.literal("activateTickLockstep")
                         .executes(context -> {
 
@@ -20,14 +20,14 @@ public class TimelineCommands {
 
                             return 1; // success
                         })
-        );
+        );*/
 
         dispatcher.register(
                 Commands.literal("playbackMode")
                         .executes(context -> {
 
-                            SyncTimeline.setPlaybackEnabled(!SyncTimeline.isPlaybackEnabled());
-                            context.getSource().sendSystemMessage(Component.literal("set activateTickLockstep to: " + PlayerSync.tickLockstepEnabled));
+                            SyncTimeline.setPlaybackEnabled(!SyncTimeline.isPlaybackEnabled(), false);
+                            context.getSource().sendSystemMessage(Component.literal("set playback to: " + SyncTimeline.isPlaybackEnabled()));
 
                             return 1; // success
                         })

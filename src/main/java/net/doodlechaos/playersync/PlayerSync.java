@@ -29,10 +29,9 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 public class PlayerSync
 {
     public static final String MOD_ID = "playersync";
-    public static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger SLOGGER = LogUtils.getLogger();
 
     public static float myTickDelta = 0;
-    public static boolean tickLockstepEnabled = false;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
     {
@@ -58,7 +57,7 @@ public class PlayerSync
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
         TimelineCommands.registerTimelineCommands(dispatcher);
 
-        LOGGER.info("Done registering commands");
+        SLOGGER.info("Done registering commands");
     }
 
     @SubscribeEvent
@@ -72,7 +71,7 @@ public class PlayerSync
     private void commonSetup(final FMLCommonSetupEvent event)
     {
         // Some common setup code
-        LOGGER.info("HELLO FROM COMMON SETUP");
+        SLOGGER.info("HELLO FROM COMMON SETUP");
 
     }
 
@@ -86,7 +85,7 @@ public class PlayerSync
     public void onServerStarting(ServerStartingEvent event)
     {
         // Do something when the server starts
-        LOGGER.info("HELLO from server starting");
+        SLOGGER.info("HELLO from server starting");
     }
 
     // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
@@ -97,8 +96,8 @@ public class PlayerSync
         public static void onClientSetup(FMLClientSetupEvent event)
         {
             // Some client setup code
-            LOGGER.info("HELLO FROM CLIENT SETUP");
-            LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+            SLOGGER.info("HELLO FROM CLIENT SETUP");
+            SLOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
         }
     }
 }

@@ -2,7 +2,7 @@ package net.doodlechaos.playersync.sync;
 
 import org.lwjgl.openal.AL10;
 import org.lwjgl.system.MemoryUtil;
-import static net.doodlechaos.playersync.PlayerSync.LOGGER;
+import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 import static org.lwjgl.stb.STBVorbis.*;
 import org.lwjgl.stb.STBVorbisInfo;
 
@@ -117,7 +117,7 @@ public class AudioSync {
             // We won’t play the reverse source until we need it, so leave it stopped for now
 
             loaded = true;
-            LOGGER.info("Loaded forward & reversed audio successfully (length = " + audioLengthSeconds + " seconds)");
+            SLOGGER.info("Loaded forward & reversed audio successfully (length = " + audioLengthSeconds + " seconds)");
 
             // Initialize timing
             lastUpdateTimeNanos = System.nanoTime();
@@ -231,7 +231,7 @@ public class AudioSync {
             float offsetError = targetOffset - audioOffset;
             if (Math.abs(offsetError) > OFFSET_TOLERANCE) {
                 AL10.alSourcef(reverseSourceId, AL_SEC_OFFSET, targetOffset);
-                LOGGER.info(String.format(
+                SLOGGER.info(String.format(
                         "Drift correction (reverse): timeline=%.3f, audio=%.3f, error=%.3f",
                         timelineSeconds, audioOffset, offsetError));
             }

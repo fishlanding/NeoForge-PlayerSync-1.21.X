@@ -24,9 +24,8 @@ public class DeltaTrackerTimerMixin {
         if(!SyncTimeline.isPlaybackEnabled())
             return;
 
-        // Retrieve the custom tick delta from your mod.
-        float customDelta = PlayerSync.myTickDelta; //SyncTimeline.getTickDelta();
-        // If customDelta is set to a valid value (here we assume a value >= 0 means "override"),
+        float customDelta = SyncTimeline.getTickDelta(); //PlayerSync.myTickDelta; //
+
         // then cancel the original method and set the return value.
         if (customDelta >= 0) {
             cir.setReturnValue(customDelta);
