@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
+import net.doodlechaos.playersync.command.RecordCommands;
 import net.doodlechaos.playersync.command.TickDeltaCommand;
 import net.doodlechaos.playersync.command.TimelineCommands;
 import net.minecraft.commands.CommandSourceStack;
@@ -56,6 +57,7 @@ public class PlayerSync
 
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
         TimelineCommands.registerTimelineCommands(dispatcher);
+        RecordCommands.registerRecordCommands(dispatcher);
 
         SLOGGER.info("Done registering commands");
     }

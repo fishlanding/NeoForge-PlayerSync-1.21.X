@@ -11,9 +11,11 @@ import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.commands.ServerPackCommand;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
@@ -41,11 +43,6 @@ public class InputsManager {
     private static final List<MyInputEvent> recordedInputsBuffer = new ArrayList<>();
     public static String mostRecentCommand;
 
-
-    private static boolean wasRKeyDown = false;
-    private static boolean wasCKeyDown = false;
-    private static boolean wasSpaceKeyDown = false;
-    private static boolean wasPKeyDown = false;
     private static boolean wasPeriodKeyDown = false;
     private static boolean wasCommaKeyDown = false;
 
@@ -56,6 +53,13 @@ public class InputsManager {
         recordedInputsBuffer.add(keyEvent);
         SLOGGER.info("detected key input: " + keyEvent.toLine());
 
+        if(Minecraft.getInstance().screen instanceof ChatScreen)
+            return;
+
+        if(SyncTimeline.isCountdownActive())
+            return;
+
+        //Detect single key presses for controls
         if(keyEvent.key == GLFW.GLFW_KEY_P && keyEvent.action == GLFW.GLFW_PRESS)
             SyncTimeline.setPlaybackEnabled(!SyncTimeline.isPlaybackEnabled(), true);
 
@@ -66,22 +70,43 @@ public class InputsManager {
            //     SyncTimeline.startRecordingCountdown();
         }
 
-        if(SyncTimeline.isPlaybackEnabled()){
+        if(!SyncTimeline.isPlaybackEnabled())
+            return;
 
+        if(keyEvent.key == GLFW.GLFW_KEY_SPACE && keyEvent.action == GLFW.GLFW_PRESS)
+            SyncTimeline.setPlaybackPaused(!SyncTimeline.isPlaybackPaused());//playbackPaused = !playbackPaused;
+
+        if(keyEvent.key == GLFW.GLFW_KEY_C && keyEvent.action == GLFW.GLFW_PRESS){
+            SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+            if(keyframe != null){
+                keyframe.addCommand(InputsManager.mostRecentCommand);
+                Minecraft client = Minecraft.getInstance();
+                if(client.player != null)
+                    client.player.sendSystemMessage(Component.literal("Added [" + InputsManager.mostRecentCommand + "] to keyframe " + SyncTimeline.getFrame()));
+            }
         }
-
-
-
     }
 
     @SubscribeEvent
     public static void onRenderFrame(RenderFrameEvent.Pre event) {
-        if(SyncTimeline.isPlaybackEnabled())
-            HandlePlaybackOnlyControls();
+        HandleControls();
     }
 
-    public static void HandlePlaybackOnlyControls(){
+    public static void HandleControls(){
         long window = Minecraft.getInstance().getWindow().getWindow();
+
+        if(SyncTimeline.isPlaybackEnabled())
+            handlePlaybackOnlyControls(window);
+    }
+
+    @Unique
+    private static void handlePlaybackOnlyControls(long window){
+
+        if(Minecraft.getInstance().screen instanceof ChatScreen)
+            return;
+
+        if(SyncTimeline.isCountdownActive())
+            return;
 
         boolean leftShift = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS;
 
@@ -89,16 +114,6 @@ public class InputsManager {
             SyncTimeline.advanceFrames(leftShift ? 2 : 1);
         if(GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT) == GLFW.GLFW_PRESS)
             SyncTimeline.backupFrames(leftShift ? 2 : 1);
-
-        // Save most recent command to keyframe (C key)
-        boolean isCKeyDown = isKeyPressed(window, GLFW.GLFW_KEY_C);
-        if (isCKeyDown && !wasCKeyDown) {
-/*            SyncKeyframe keyframe = SyncTimeline.getCurKeyframe();
-
-            if(keyframe != null)
-                SyncKeyframe.addCommandToKeyframe(InputsManager.mostRecentCommand, keyframe);*/
-        }
-        wasCKeyDown = isCKeyDown;
 
         if(isKeyPressed(window, GLFW.GLFW_KEY_DOWN))
             SyncTimeline.setFrame(0);
@@ -108,14 +123,6 @@ public class InputsManager {
             if(recordedFrames > 0)
                 SyncTimeline.setFrame(recordedFrames - 1);
         }
-
-        // Toggle playback paused (Space key)
-        boolean isSpaceKeyDown = isKeyPressed(window, GLFW.GLFW_KEY_SPACE);
-        if (isSpaceKeyDown && !wasSpaceKeyDown && !SyncTimeline.isPlaybackDetatched()) {
-            SyncTimeline.setPlaybackPaused(!SyncTimeline.isPlaybackPaused());//playbackPaused = !playbackPaused;
-            SLOGGER.info("Detected toggle playback paused key press");
-        }
-        wasSpaceKeyDown = isSpaceKeyDown;
 
         // Advance frame (Period key)
         boolean isPeriodKeyDown = isKeyPressed(window, GLFW.GLFW_KEY_PERIOD);
@@ -133,11 +140,11 @@ public class InputsManager {
         }
         wasCommaKeyDown = isCommaKeyDown;
 
-/*        if(isKeyPressed(window, GLFW.GLFW_KEY_W)
+        if(isKeyPressed(window, GLFW.GLFW_KEY_W)
                 || isKeyPressed(window, GLFW.GLFW_KEY_A)
                 || isKeyPressed(window, GLFW.GLFW_KEY_S)
                 || isKeyPressed(window, GLFW.GLFW_KEY_D))
-            SyncTimeline.setPlayerDetatched(true);*/
+            SyncTimeline.setPlaybackDetatched(true);
     }
 
     @Unique
@@ -167,14 +174,13 @@ public class InputsManager {
 
     }
 
-    public static void SimulateInputsFromKeyframe(SyncKeyframe keyframe){
+    public static void simulateInputsFromKeyframe(SyncKeyframe keyframe){
 
         if(keyframe == null)
             return;
 
         Minecraft client = Minecraft.getInstance();
         long window = client.getWindow().getWindow();
-
 
         for (MyInputEvent ie : keyframe.recordedInputEvents) {
             ie.simulate(window, client);
@@ -229,181 +235,5 @@ public class InputsManager {
             }
         });
     }
-/*
-
-
-    private static boolean wasRKeyDown = false;
-    private static boolean wasCKeyDown = false;
-    private static boolean wasSpaceKeyDown = false;
-    private static boolean wasPKeyDown = false;
-    private static boolean wasPeriodKeyDown = false;
-    private static boolean wasCommaKeyDown = false;
-
-    // Called from your mixin to record a mouse button event.
-    public static void recordMouseButtonEvent(MouseButtonEvent event) {
-        PlayerSync.LOGGER.info("Recorded mouse button event on frame: " + SyncTimeline.getFrame() + " " + event.action);
-        recordedInputsBuffer.add(event);
-    }
-
-    // Called from your mixin to record a mouse scroll event.
-    public static void recordMouseScrollEvent(MouseScrollEvent event) {
-        recordedInputsBuffer.add(event);
-    }
-
-    // Called from your mixin to record a mouse position event.
-    public static void recordMousePosEvent(MousePosEvent event) {
-        //recordedInputsBuffer.add(event);
-    }
-
-    // Called from your mixin to record a keyboard event.
-    public static void recordKeyboardEvent(KeyboardEvent event) {
-        LOGGER.info("recorded keyboard event on frame: " + PlayerTimeline.getFrame());
-        recordedInputsBuffer.add(event);
-    }
-
-    public static List<InputEvent> getRecordedInputsBuffer(){
-        return recordedInputsBuffer;
-    }
-
-    public static void clearRecordedInputsBuffer(){
-        // Clear the recorded event lists so they don't accumulate events across frames.
-        recordedInputsBuffer.clear();
-    }
-
-    public static void checkPlaybackKeyboardControls() {
-
-        if (MinecraftClient.getInstance().world == null || MinecraftClient.getInstance().player == null)
-            return;
-
-        if(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)
-            return;
-
-        if(PlayerTimeline.isCountdownActive())
-            return;
-
-        long window = MinecraftClient.getInstance().getWindow().getHandle();
-
-        // Toggle playback mode (P key)
-        boolean isPKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_P);
-        if (isPKeyDown && !wasPKeyDown) {
-            PlayerTimeline.setPlaybackEnabled(!PlayerTimeline.isPlaybackEnabled(), true);
-            LOGGER.info("Detected toggle playback mode key press");
-        }
-        wasPKeyDown = isPKeyDown;
-
-        // Toggle Recording (R key)
-        boolean isRKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_R);
-        if (isRKeyDown && !wasRKeyDown) {
-            if(PlayerTimeline.isRecording())
-                PlayerTimeline.setRecording(false);
-            else if(!PlayerTimeline.isCountdownActive())
-                PlayerTimeline.startRecordingCountdown();
-        }
-        wasRKeyDown = isRKeyDown;
-
-        if (!PlayerTimeline.isPlaybackEnabled())
-            return;
-
-        // Save most recent command to keyframe (C key)
-        boolean isCKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_C);
-        if (isCKeyDown && !wasCKeyDown) {
-            PlayerKeyframe keyframe = PlayerTimeline.getCurKeyframe();
-
-            if(keyframe != null)
-                PlayerTimeline.addCommandToKeyframe(InputsManager.mostRecentCommand, keyframe);
-        }
-        wasCKeyDown = isCKeyDown;
-
-        if(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_RIGHT))
-            PlayerTimeline.advanceFrames(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_LEFT_SHIFT) ? 2 : 1);
-
-        if(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_LEFT))
-            PlayerTimeline.backupFrames(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_LEFT_SHIFT) ? 2 : 1);
-
-        if(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_DOWN))
-            PlayerTimeline.setFrame(0);
-
-        if(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_UP)){
-            int recordedFrames = PlayerTimeline.getRecordedKeyframes().size();
-            if(recordedFrames > 0)
-                PlayerTimeline.setFrame(recordedFrames - 1);
-        }
-
-        // Toggle playback paused (Space key)
-        boolean isSpaceKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_SPACE);
-        if (isSpaceKeyDown && !wasSpaceKeyDown && !PlayerTimeline.isPlayerDetatched()) {
-            PlayerTimeline.setPlaybackPaused(!PlayerTimeline.isPlaybackPaused());//playbackPaused = !playbackPaused;
-            LOGGER.info("Detected toggle playback paused key press");
-        }
-        wasSpaceKeyDown = isSpaceKeyDown;
-
-        // Advance frame (Period key)
-        boolean isPeriodKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_PERIOD);
-        if (isPeriodKeyDown && !wasPeriodKeyDown) {
-            PlayerTimeline.advanceFrames(1);
-            LOGGER.info("Detected advance frame key press");
-        }
-        wasPeriodKeyDown = isPeriodKeyDown;
-
-        // Backup frame (Comma key)
-        boolean isCommaKeyDown = InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_COMMA);
-        if (isCommaKeyDown && !wasCommaKeyDown) {
-            PlayerTimeline.backupFrames(1);
-            LOGGER.info("Detected backup frame key press");
-        }
-        wasCommaKeyDown = isCommaKeyDown;
-
-        if(InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_W)
-                || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_A)
-                || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_S)
-                || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_D))
-            PlayerTimeline.setPlayerDetatched(true);
-    }
-
-    public static void releaseAllKeys(){
-
-        MinecraftClient client = MinecraftClient.getInstance();
-        Keyboard keyboard = client.keyboard; // Adjust based on how you access your Keyboard instance
-        long window = client.getWindow().getHandle();
-
-        for (int key = GLFW.GLFW_KEY_SPACE; key <= GLFW.GLFW_KEY_LAST; key++) {
-            // Skip F3 to prevent the debug menu from toggling.
-            if (key == GLFW.GLFW_KEY_F3)
-                continue;
-
-            if(InputUtil.isKeyPressed(window, key)) //<< Adding this?
-                continue;
-
-            int scancode = GLFW.glfwGetKeyScancode(key);
-            if(scancode <= 0)
-                continue;
-            keyboard.onKey(window, key, scancode, GLFW.GLFW_RELEASE, 0);
-        }
-        LOGGER.info("Released all keys");
-    }
-
-    public static void SimulateInputsFromKeyframe(PlayerKeyframe keyframe){
-
-        if(keyframe == null)
-            return;
-
-        MinecraftClient client = MinecraftClient.getInstance();
-        long window = client.getWindow().getHandle();
-
-
-        for (InputEvent ie : keyframe.recordedInputEvents) {
-            ie.simulate(window, client);
-        }
-
-        //Execute the commands stored in the keyframe
-        for(String cmd : keyframe.cmds){
-            if (cmd == null || cmd.isEmpty()) {
-                continue; // Skip null or empty commands
-            }
-            ExecuteCommandAsPlayer(cmd);
-        }
-    }
-
-*/
 
 }

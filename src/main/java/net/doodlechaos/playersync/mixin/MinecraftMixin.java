@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.VideoRenderer;
+import net.doodlechaos.playersync.input.InputsManager;
 import net.doodlechaos.playersync.mixin.accessor.BlockableEventLoopAccessor;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
@@ -26,7 +27,6 @@ public class MinecraftMixin {
 
     }
 
-    //TODO: I'd like to get this called at 60fps to be my main loop. I think it is! when I limit the FPS in game.
     @ModifyVariable(method = "runTick(Z)V", at = @At("HEAD"), argsOnly = true)
     private boolean modifyRenderLevel(boolean renderLevel) {
         if(!SyncTimeline.isLockstepMode())
@@ -46,10 +46,10 @@ public class MinecraftMixin {
     )
     private int redirectAdvanceTime(DeltaTracker.Timer timer, long timeMillis, boolean renderLevel) {
 
-        if(SyncTimeline.isPlaybackEnabled() && !SyncTimeline.isPlaybackDetatched()){
-            SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+        SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+
+        if(!SyncTimeline.isRecording() && SyncTimeline.isPlaybackEnabled() && !SyncTimeline.isPlaybackDetatched())
             SyncTimeline.setPlayerFromKeyframe(keyframe);
-        }
 
         if (!SyncTimeline.isLockstepMode())
             return timer.advanceTime(timeMillis, renderLevel);
@@ -60,11 +60,10 @@ public class MinecraftMixin {
             SyncTimeline.advanceFrames(1); //DO this here so that the server and client are on the same frame
 
 
-
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
 
-        //TODO: Simulate inputs based on the keyframe
+        //InputsManager.simulateInputsFromKeyframe(keyframe);
 
         //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
         if(SyncTimeline.isTickFrame() && SyncTimeline.hasFrameChanged()){

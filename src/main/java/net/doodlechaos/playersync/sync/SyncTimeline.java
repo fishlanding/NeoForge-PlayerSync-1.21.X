@@ -1,9 +1,13 @@
 package net.doodlechaos.playersync.sync;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.doodlechaos.playersync.PlayerSync;
 import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.input.InputsManager;
+import net.doodlechaos.playersync.mixin.accessor.CameraAccessor;
+import net.doodlechaos.playersync.utils.PlayerSyncFolderUtils;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -16,6 +20,7 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,7 +115,7 @@ public class SyncTimeline {
                         "Recording in: " + displaySeconds,
                         centerX - 50,
                         centerY,
-                        0xFF0000,                       // text color (red)
+                        0xFF0000,                 // text color (red)
                         false,                          // dropShadow flag
                         poseStack.last().pose(),        // Matrix4f from the PoseStack
                         event.getGuiGraphics().bufferSource(), // MultiBufferSource
@@ -125,16 +130,18 @@ public class SyncTimeline {
 
     public static void advanceFrames(int count){
         SLOGGER.info("advancing: " + count);
-        frame += count;
-        if(frame >= recordedKeyframes.size())
-            setFrame(recordedKeyframes.size());
+        int nextFrame = frame + count;
+        if(nextFrame >= recordedKeyframes.size())
+            nextFrame = recordedKeyframes.size();
+        setFrame(nextFrame);
     }
 
     public static void backupFrames(int amount){
         SLOGGER.info("backup: " + amount);
-        frame -= amount;
-        if(frame <= 0)
-            setFrame(0);
+        int nextFrame = frame - amount;
+        if(nextFrame <= 0)
+            nextFrame = 0;
+        setFrame(nextFrame);
     }
 
     public static void setFrame(int value){
@@ -164,10 +171,11 @@ public class SyncTimeline {
         if(playbackDetatched == value)
             return;
         playbackDetatched = value;
-
+        SLOGGER.info("Set playback detatched: " + value);
         if(playbackDetatched)
             InputsManager.releaseAllKeys();
     }
+
     public static void startRecordingCountdown(){
         // If fewer than 3 seconds of frames exist, we'll just start from the beginning
         int totalFrames = getRecordedKeyframes().size();
@@ -213,7 +221,7 @@ public class SyncTimeline {
 
         Vec3 lerpedPlayerPos = player.getPosition(tickDelta);
 
-        long frameNumber = getFrame(); //recordedKeyframes.size();
+        long frameNumber = getFrame();
 
         Camera cam = client.gameRenderer.getMainCamera();
         Vec3 camPos = cam.getPosition();
@@ -226,8 +234,8 @@ public class SyncTimeline {
                 frameNumber,
                 tickDelta,
                 lerpedPlayerPos,
-                player.getViewYRot(tickDelta),
-                player.getViewXRot(tickDelta),
+                player.getYRot(),
+                player.getXRot(),
                 player.getDeltaMovementLerped(tickDelta),
                 camPos,
                 camRot,
@@ -265,13 +273,66 @@ public class SyncTimeline {
             return;
 
         player.setPos(keyframe.playerPos);
-        player.setYHeadRot(keyframe.playerYaw);
+        player.setYRot(keyframe.playerYaw);
         player.setXRot(keyframe.playerPitch);
         player.setDeltaMovement(keyframe.playerVel);
 
         Vector3f euler = new Vector3f();
         keyframe.camRot.getEulerAnglesYXZ(euler);
 
-        //TODO: Set the camera pos, or it is not necessary with the roll being built in to the player now?
+        ((CameraAccessor)cam).invokeSetRotation(euler.y, euler.x, euler.z);
+        ((CameraAccessor)cam).invokeSetPosition(keyframe.camPos);
+
+        SLOGGER.info("done setting player from keyframe");
     }
+
+    public static void clearRecordedKeyframes(){
+        recordedKeyframes.clear();
+    }
+    public static void pruneKeyframesAfterPlayhead(){
+        if (recordedKeyframes.size() <= frame + 1) {
+            return;
+        }
+        recordedKeyframes.subList(frame + 1, recordedKeyframes.size()).clear();
+    }
+
+    public static void SaveRecToFile(String recName) {
+        File recFile = new File(PlayerSyncFolderUtils.getPlayerSyncFolder(), recName);
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapter(Vec3.class, new SyncKeyframe.Vec3Adapter())
+                .registerTypeAdapter(Quaternionf.class, new SyncKeyframe.QuaternionfAdapter())
+                .setPrettyPrinting()
+                .create();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(recFile))) {
+            String json = gson.toJson(recordedKeyframes);
+            writer.write(json);
+            LOGGER.info("Recording saved to file: " + recFile.getAbsolutePath());
+        } catch (IOException e) {
+            LOGGER.error("Error saving recording to file: " + recFile.getAbsolutePath(), e);
+        }
+    }
+
+    public static void LoadRecFromFile(String recName) {
+        File recFile = new File(PlayerSyncFolderUtils.getPlayerSyncFolder(), recName);
+        Gson gson = new GsonBuilder()
+                .registerTypeAdapter(Vec3.class, new SyncKeyframe.Vec3Adapter())
+                .registerTypeAdapter(Quaternionf.class, new SyncKeyframe.QuaternionfAdapter())
+                .create();
+        try (BufferedReader reader = new BufferedReader(new FileReader(recFile))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            String json = sb.toString();
+            java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<List<SyncKeyframe>>() {}.getType();
+            List<SyncKeyframe> loadedKeyframes = gson.fromJson(json, listType);
+            recordedKeyframes.clear();
+            recordedKeyframes.addAll(loadedKeyframes);
+            LOGGER.info("Recording loaded from file: " + recFile.getAbsolutePath());
+        } catch (IOException e) {
+            LOGGER.error("Error loading recording from file: " + recFile.getAbsolutePath(), e);
+        }
+    }
+
 }
