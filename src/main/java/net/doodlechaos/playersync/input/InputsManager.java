@@ -1,5 +1,6 @@
 package net.doodlechaos.playersync.input;
 
+import com.mojang.authlib.minecraft.TelemetrySession;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.PlayerSync;
@@ -15,9 +16,12 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.commands.ServerPackCommand;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -27,6 +31,9 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyModifier;
+import net.neoforged.neoforge.event.CommandEvent;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.jline.keymap.KeyMap;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Unique;
@@ -34,8 +41,9 @@ import org.spongepowered.asm.mixin.Unique;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.mojang.text2speech.Narrator.LOGGER;
 import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
-
+import static net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
 
 @EventBusSubscriber(modid = PlayerSync.MOD_ID)
 public class InputsManager {
@@ -56,21 +64,29 @@ public class InputsManager {
         if(Minecraft.getInstance().screen instanceof ChatScreen)
             return;
 
-        if(SyncTimeline.isCountdownActive())
-            return;
+        TLMode mode = SyncTimeline.getMode();
 
         //Detect single key presses for controls
-        if(keyEvent.key == GLFW.GLFW_KEY_P && keyEvent.action == GLFW.GLFW_PRESS)
-            SyncTimeline.setPlaybackEnabled(!SyncTimeline.isPlaybackEnabled(), true);
+        if(keyEvent.key == GLFW.GLFW_KEY_P && keyEvent.action == GLFW.GLFW_PRESS){
+            if(mode == TLMode.PLAYBACK)
+                SyncTimeline.setCurrMode(TLMode.NONE, true);
+            else
+                SyncTimeline.setCurrMode(TLMode.PLAYBACK, true);
 
-        if(keyEvent.key == GLFW.GLFW_KEY_R && keyEvent.action == GLFW.GLFW_PRESS) {
-           // if(SyncTimeline.isRecording())
-                SyncTimeline.setRecording(!SyncTimeline.isRecording());
-           // else if(!SyncTimeline.isCountdownActive())
-           //     SyncTimeline.startRecordingCountdown();
         }
 
-        if(!SyncTimeline.isPlaybackEnabled())
+        if(keyEvent.key == GLFW.GLFW_KEY_R && keyEvent.action == GLFW.GLFW_PRESS) {
+            if(mode == TLMode.REC){
+                SyncTimeline.setCurrMode(TLMode.NONE, true);
+            }
+            else if(mode == TLMode.REC_COUNTDOWN)
+                SyncTimeline.setCurrMode(TLMode.NONE, true);
+            else if(mode == TLMode.NONE){
+                SyncTimeline.setCurrMode(TLMode.REC_COUNTDOWN, true);
+            }
+        }
+
+        if(mode != SyncTimeline.TLMode.PLAYBACK)
             return;
 
         if(keyEvent.key == GLFW.GLFW_KEY_SPACE && keyEvent.action == GLFW.GLFW_PRESS)
@@ -88,6 +104,41 @@ public class InputsManager {
     }
 
     @SubscribeEvent
+    public static void onPlayerCommand(ServerChatEvent event){
+        String rawText = event.getRawText();
+        if (event.getRawText().startsWith("/")) {
+            mostRecentCommand = rawText;
+            LOGGER.info("Captured command from ChatScreen: " + rawText);
+        }
+        LOGGER.info("Detected on send message in chat screen");
+    }
+
+    @SubscribeEvent
+    public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        // This event fires when a player left-clicks a block.
+        Player player = event.getEntity();
+        // Check the player's held item; you can also check the offhand if desired.
+        if (player.getMainHandItem().getItem() == Items.WOODEN_AXE) {
+            BlockPos pos = event.getPos();
+            InputsManager.mostRecentCommand = "//pos1 " + pos.getX() + " " + pos.getY() + " " + pos.getZ();
+            // Optionally, send a message to the player
+            // player.sendMessage(new StringTextComponent("You set pos1 at: " + InputsManager.mostRecentCommand), player.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        // This event fires when a player right-clicks a block.
+        Player player = event.getEntity();
+        if (player.getMainHandItem().getItem() == Items.WOODEN_AXE) {
+            BlockPos pos = event.getPos();
+            InputsManager.mostRecentCommand = "//pos2 " + pos.getX() + " " + pos.getY() + " " + pos.getZ();
+            // Optionally, send a message to the player
+            // player.sendMessage(new StringTextComponent("You set pos2 at: " + InputsManager.mostRecentCommand), player.getUUID());
+        }
+    }
+
+    @SubscribeEvent
     public static void onRenderFrame(RenderFrameEvent.Pre event) {
         HandleControls();
     }
@@ -95,7 +146,7 @@ public class InputsManager {
     public static void HandleControls(){
         long window = Minecraft.getInstance().getWindow().getWindow();
 
-        if(SyncTimeline.isPlaybackEnabled())
+        if(SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK)
             handlePlaybackOnlyControls(window);
     }
 
@@ -103,9 +154,6 @@ public class InputsManager {
     private static void handlePlaybackOnlyControls(long window){
 
         if(Minecraft.getInstance().screen instanceof ChatScreen)
-            return;
-
-        if(SyncTimeline.isCountdownActive())
             return;
 
         boolean leftShift = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS;

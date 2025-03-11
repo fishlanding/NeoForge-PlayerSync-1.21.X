@@ -22,7 +22,7 @@ public class TimelineCommands {
                         })
         );*/
 
-        dispatcher.register(
+/*        dispatcher.register(
                 Commands.literal("playbackMode")
                         .executes(context -> {
 
@@ -31,6 +31,6 @@ public class TimelineCommands {
 
                             return 1; // success
                         })
-        );
+        );*/
     }
 }

@@ -12,6 +12,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -30,8 +31,10 @@ import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 @EventBusSubscriber(modid = PlayerSync.MOD_ID)
 public class SyncTimeline {
 
-    private static boolean recording = false;
-    private static boolean playbackEnabled = false;
+    public enum TLMode {REC_COUNTDOWN, REC, PLAYBACK, NONE}
+    private static TLMode currMode = TLMode.NONE;
+    //private static boolean recording = false;
+    //private static boolean playbackEnabled = false;
     private static boolean playbackPaused = false;
     private static boolean playbackDetatched = false;
 
@@ -40,19 +43,19 @@ public class SyncTimeline {
     public static void updatePrevFrame(){prevFrame = frame;}
 
     private static final int COUNTDOWN_DURATION_FRAMES = 3 * 60; // 3 seconds at 60 fps
-    private static boolean countdownActive = false;
+    private static int countdownDurationFrames = COUNTDOWN_DURATION_FRAMES;
     private static int countdownStartFrame = 0;
 
     private static final List<SyncKeyframe> recordedKeyframes = new ArrayList<>();
 
-    public static boolean isPlaybackEnabled() {return playbackEnabled; }
-    public static boolean isRecording(){return recording;}
+    public static TLMode getMode() {return currMode;}
+    //public static boolean isPlaybackEnabled() {return playbackEnabled; }
+    //public static boolean isRecording(){return recording;}
     public static boolean isPlaybackPaused(){return playbackPaused; }
     public static boolean isPlaybackDetatched() {return playbackDetatched;}
     public static boolean isTickFrame() { return (getFrame() % 3) == 0;}
     public static boolean hasFrameChanged(){ return (getFrame() != getPrevFrame());}
-    public static boolean isLockstepMode() {return (isRecording() || (isPlaybackEnabled() && !isPlaybackPaused())); }
-    public static boolean isCountdownActive(){return countdownActive;}
+    //public static boolean isLockstepMode() {return (/*isRecording() || */isPlaybackEnabled()); }
 
     public static int getFrame(){return frame;}
     public static int getPrevFrame(){return prevFrame;}
@@ -70,11 +73,12 @@ public class SyncTimeline {
         PoseStack poseStack = event.getGuiGraphics().pose();
 
         // Build debug text string
-        String debugText = "inPlaybackMode:" + playbackEnabled;
-        if (isRecording()) {
+        String debugText = " deltaTick: " + client.getTimer().getGameTimeDeltaPartialTick(true);
+
+        if (currMode == TLMode.REC) {
             debugText += " recFrame: " + getRecFrame();
         }
-        if (isPlaybackEnabled()) {
+        if (currMode == TLMode.PLAYBACK) {
             debugText += " playbackPaused:" + playbackPaused + " frame: " + frame;
         }
 
@@ -89,24 +93,19 @@ public class SyncTimeline {
                 event.getGuiGraphics().bufferSource(), // MultiBufferSource
                 Font.DisplayMode.NORMAL,            // Display mode
                 0,                                  // background color (0 if none)
-                0                                   // packed light coordinates (0 if default)
+                15728880                                            // packed light coordinates (0 if default)
         );
 
-        if (isCountdownActive()) {
-            // Compute elapsed frames and remaining frames in the countdown
+        if (currMode == TLMode.REC_COUNTDOWN) {
             int framesElapsed = getFrame() - countdownStartFrame;
-            int framesLeft = COUNTDOWN_DURATION_FRAMES - framesElapsed;
-            // Convert frames to seconds (approximate, assuming 60 FPS)
+            int framesLeft = countdownDurationFrames - framesElapsed;
             float countdownSeconds = framesLeft / 60.0f;
 
             if (countdownSeconds <= 0) {
-                // Countdown finished – update state and switch to recording
-                countdownActive = false;
-                setPlaybackEnabled(false, false);
-                setRecording(true);
+                // Countdown finished – switch to recording
+                setCurrMode(TLMode.REC, true);
                 debugText += " [Countdown finished -> Recording]";
             } else {
-                // Display a large countdown text at the center of the screen
                 int centerX = client.getWindow().getGuiScaledWidth() / 2;
                 int centerY = client.getWindow().getGuiScaledHeight() / 2;
                 int displaySeconds = (int) Math.ceil(countdownSeconds);
@@ -115,16 +114,17 @@ public class SyncTimeline {
                         "Recording in: " + displaySeconds,
                         centerX - 50,
                         centerY,
-                        0xFF0000,                 // text color (red)
-                        false,                          // dropShadow flag
-                        poseStack.last().pose(),        // Matrix4f from the PoseStack
-                        event.getGuiGraphics().bufferSource(), // MultiBufferSource
-                        Font.DisplayMode.NORMAL,        // Display mode
-                        0,                              // background color (0 if none)
-                        0                               // packed light coordinates (0 if default)
+                        0xFF0000,  // text color (red)
+                        false,     // dropShadow flag
+                        poseStack.last().pose(),
+                        event.getGuiGraphics().bufferSource(),
+                        Font.DisplayMode.NORMAL,
+                        0,
+                        15728880
                 );
             }
         }
+
     }
 
 
@@ -152,21 +152,40 @@ public class SyncTimeline {
         setPlaybackDetatched(false);
     }
 
-    public static void setPlaybackEnabled(boolean value, boolean releaseKeysIfNecessary){
-        if(playbackEnabled == value)
+    public static void setCurrMode(TLMode mode, boolean releaseKeysIfNecessary){
+        if(currMode == mode)
             return;
 
-        playbackEnabled = value;
+        if(mode == TLMode.REC_COUNTDOWN){
+            int totalFrames = getRecordedKeyframes().size();
+            if(totalFrames == 0) {
+                SLOGGER.info("No frames recorded, starting recording immediately.");
+                setCurrMode(TLMode.REC, true);
+                return;
+            }
+            // Clamp countdown duration if fewer than 3 seconds (COUNTDOWN_DURATION_FRAMES) of frames exist
+            countdownDurationFrames = Math.min(COUNTDOWN_DURATION_FRAMES, totalFrames);
+            int targetStart = totalFrames - countdownDurationFrames;
+            setFrame(targetStart);
+            countdownStartFrame = targetStart;
+            SLOGGER.info("Starting recording countdown with " + countdownDurationFrames +
+                    " frames (" + (countdownDurationFrames / 60.0f) + " seconds) countdown!");
+        }
 
-        if(!playbackEnabled && releaseKeysIfNecessary)
+        if(mode == TLMode.REC)
+            setFrame(getRecFrame());
+
+        IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+        if(server != null)
+            server.tickRateManager().setFrozen(mode == TLMode.PLAYBACK);
+
+        if(mode != TLMode.PLAYBACK && releaseKeysIfNecessary)
             InputsManager.releaseAllKeys();
+
+        currMode = mode;
     }
 
-    public static void setRecording(boolean value)
-    {
-        recording = value;
-        setFrame(getRecFrame());
-    }
+
     public static void setPlaybackDetatched(boolean value){
         if(playbackDetatched == value)
             return;
@@ -174,20 +193,6 @@ public class SyncTimeline {
         SLOGGER.info("Set playback detatched: " + value);
         if(playbackDetatched)
             InputsManager.releaseAllKeys();
-    }
-
-    public static void startRecordingCountdown(){
-        // If fewer than 3 seconds of frames exist, we'll just start from the beginning
-        int totalFrames = getRecordedKeyframes().size();
-        int targetStart = Math.max(0, totalFrames - COUNTDOWN_DURATION_FRAMES);
-
-        setFrame(targetStart);
-        setPlaybackEnabled(true, false);
-        setPlaybackPaused(false);
-
-        countdownActive = true;
-        countdownStartFrame = targetStart;
-        SLOGGER.info("Starting recording countdown!");
     }
 
     public static void setPlaybackPaused(boolean value){
@@ -214,12 +219,10 @@ public class SyncTimeline {
             return;
         }
 
-        float tickDelta = client.getTimer().getGameTimeDeltaPartialTick(false);
+        float tickDelta = client.getTimer().getGameTimeDeltaPartialTick(true);
         if(frame == 0){
             LOGGER.error("playheadIndex: " + frame + " tickDelta: " + tickDelta);
         }
-
-        Vec3 lerpedPlayerPos = player.getPosition(tickDelta);
 
         long frameNumber = getFrame();
 
@@ -233,10 +236,10 @@ public class SyncTimeline {
         SyncKeyframe keyframe = new SyncKeyframe(
                 frameNumber,
                 tickDelta,
-                lerpedPlayerPos,
+                player.position(),//lerpedPlayerPos,
                 player.getYRot(),
                 player.getXRot(),
-                player.getDeltaMovementLerped(tickDelta),
+                player.getDeltaMovement(),
                 camPos,
                 camRot,
                 new ArrayList<>(InputsManager.getRecordedInputsBuffer()),
@@ -283,7 +286,7 @@ public class SyncTimeline {
         ((CameraAccessor)cam).invokeSetRotation(euler.y, euler.x, euler.z);
         ((CameraAccessor)cam).invokeSetPosition(keyframe.camPos);
 
-        SLOGGER.info("done setting player from keyframe");
+        //SLOGGER.info("done setting player from keyframe");
     }
 
     public static void clearRecordedKeyframes(){

@@ -21,7 +21,12 @@ public class DeltaTrackerTimerMixin {
     @Inject(method = "getGameTimeDeltaPartialTick", at = @At("HEAD"), cancellable = true)
     private void onGetGameTimeDeltaPartialTick(boolean runsNormally, CallbackInfoReturnable<Float> cir) {
 
-        if(!SyncTimeline.isPlaybackEnabled())
+        if(PlayerSync.overrideTickDelta){
+            cir.setReturnValue(PlayerSync.myTickDelta);
+            return;
+        }
+
+        if(SyncTimeline.getMode() != SyncTimeline.TLMode.PLAYBACK)
             return;
 
         float customDelta = SyncTimeline.getTickDelta(); //PlayerSync.myTickDelta; //

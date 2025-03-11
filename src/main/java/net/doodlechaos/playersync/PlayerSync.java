@@ -32,6 +32,7 @@ public class PlayerSync
     public static final String MOD_ID = "playersync";
     public static final Logger SLOGGER = LogUtils.getLogger();
 
+    public static boolean overrideTickDelta;
     public static float myTickDelta = 0;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
@@ -66,7 +67,7 @@ public class PlayerSync
     public void onServerTick(ServerTickEvent.Post event){
 
         // Your code here – this runs after the server tick has finished.
-        //LOGGER.info("Detected end of server tick");
+        //SLOGGER.info("Detected end of server tick");
 
     }
 

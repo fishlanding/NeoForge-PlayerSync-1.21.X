@@ -71,7 +71,7 @@ public class VideoRenderer {
         }
         rendering = true;
         SyncTimeline.setFrame(0);
-        SyncTimeline.setPlaybackEnabled(true, true);
+        SyncTimeline.setCurrMode(SyncTimeline.TLMode.PLAYBACK, true);
         SyncTimeline.setPlaybackPaused(false);
 
         loadConfig(); // load configuration from file

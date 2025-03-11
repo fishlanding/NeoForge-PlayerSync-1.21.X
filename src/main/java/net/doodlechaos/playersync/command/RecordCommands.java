@@ -7,6 +7,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
+import static net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
 import static net.minecraft.commands.Commands.literal;
 
 public class RecordCommands {
@@ -15,14 +16,14 @@ public class RecordCommands {
         dispatcher.register(literal("rec")
                 // No argument version – uses default value 10
                 .executes(ctx -> {
-                    if(SyncTimeline.isRecording())
+                    if(SyncTimeline.getMode() == TLMode.REC)
                     {
-                        SyncTimeline.setRecording(false);
-                        ctx.getSource().sendSystemMessage(Component.literal("Stopped Recording: " + SyncTimeline.isRecording()));
+                        SyncTimeline.setCurrMode(TLMode.NONE, true);
+                        ctx.getSource().sendSystemMessage(Component.literal("Stopped Recording"));
                     }
                     else{
-                        SyncTimeline.startRecordingCountdown();
-                        ctx.getSource().sendSystemMessage(Component.literal("Starting Recording: " + SyncTimeline.isRecording()));
+                        SyncTimeline.setCurrMode(TLMode.REC_COUNTDOWN, false);
+                        ctx.getSource().sendSystemMessage(Component.literal("Starting Countdown"));
                     }
 
                     return 1;
