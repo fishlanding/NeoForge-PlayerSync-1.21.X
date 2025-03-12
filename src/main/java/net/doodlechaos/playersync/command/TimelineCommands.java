@@ -32,5 +32,13 @@ public class TimelineCommands {
                             return 1; // success
                         })
         );*/
+        dispatcher.register(
+                Commands.literal("testScreen")
+                        .executes(ctx -> {
+                            PlayerSync.OpenScreen = !PlayerSync.OpenScreen;
+                            return 1;
+                        })
+        );
+
     }
 }

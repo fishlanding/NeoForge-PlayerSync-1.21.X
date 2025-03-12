@@ -5,9 +5,13 @@ import net.doodlechaos.playersync.command.RecordCommands;
 import net.doodlechaos.playersync.command.RenderCommands;
 import net.doodlechaos.playersync.command.TickDeltaCommand;
 import net.doodlechaos.playersync.command.TimelineCommands;
+import net.doodlechaos.playersync.sync.SyncKeyframe;
+import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
@@ -36,6 +40,7 @@ public class PlayerSync
 
     public static boolean overrideTickDelta;
     public static float myTickDelta = 0;
+    public static boolean OpenScreen = false;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
     {
@@ -71,7 +76,18 @@ public class PlayerSync
 
         // Your code here – this runs after the server tick has finished.
         //SLOGGER.info("Detected end of server tick");
+    }
 
+    @SubscribeEvent
+    public void onClientTick(ClientTickEvent.Post event){
+        Minecraft mc = Minecraft.getInstance();
+
+        if(mc.screen == null && OpenScreen)
+        {
+            SyncKeyframe key = SyncTimeline.getCurrKeyframe();
+            if(key != null)
+                mc.setScreen(new MyListScreen(mc, key.cmds));
+        }
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)

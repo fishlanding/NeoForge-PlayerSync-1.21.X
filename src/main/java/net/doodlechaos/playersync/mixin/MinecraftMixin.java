@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.VideoRenderer;
+import net.doodlechaos.playersync.input.InputsManager;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
@@ -38,12 +39,14 @@ public class MinecraftMixin {
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
 
-        //InputsManager.simulateInputsFromKeyframe(keyframe);
-        
         int i = 0;
         //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
         boolean istickFrame = SyncTimeline.isTickFrame();
         boolean hasFrameChanged = SyncTimeline.hasFrameChanged();
+
+        if(hasFrameChanged)
+            InputsManager.simulateInputsFromKeyframe(keyframe);
+
         if(istickFrame && hasFrameChanged){
             // If the integrated server exists, tick it on its own thread and wait until it completes.
             if (server != null) {

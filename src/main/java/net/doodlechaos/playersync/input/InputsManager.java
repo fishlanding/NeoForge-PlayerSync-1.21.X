@@ -4,9 +4,7 @@ import com.mojang.authlib.minecraft.TelemetrySession;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.PlayerSync;
-import net.doodlechaos.playersync.input.containers.KeyboardEvent;
-import net.doodlechaos.playersync.input.containers.MouseButtonEvent;
-import net.doodlechaos.playersync.input.containers.MyInputEvent;
+import net.doodlechaos.playersync.input.containers.*;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.client.KeyMapping;
@@ -58,7 +56,11 @@ public class InputsManager {
     public static void onKeyInput(InputEvent.Key event) {
         // Process the event and create your KeyboardEvent instance if needed
         KeyboardEvent keyEvent = new KeyboardEvent(event.getKey(), event.getScanCode(), event.getAction(), event.getModifiers());
-        recordedInputsBuffer.add(keyEvent);
+
+        if(SyncTimeline.getMode() == TLMode.REC) {
+            addEventToBuffer(keyEvent);
+        }
+
         SLOGGER.info("detected key input: " + keyEvent.toLine());
 
         if(Minecraft.getInstance().screen instanceof ChatScreen)
@@ -105,7 +107,30 @@ public class InputsManager {
             }
         }
     }
+    @SubscribeEvent
+    public static void onMouseButtonInput(InputEvent.MouseButton.Pre event){
+        if(SyncTimeline.getMode() != TLMode.REC)
+            return;
 
+        MouseButtonEvent mouseButtonEvent = new MouseButtonEvent(event.getButton(), event.getAction(), event.getModifiers());
+        addEventToBuffer(mouseButtonEvent);
+    }
+
+    @SubscribeEvent
+    public static void onMouseScrollInput(InputEvent.MouseScrollingEvent event){
+        if(SyncTimeline.getMode() != TLMode.REC)
+            return;
+
+        MouseScrollEvent mouseScrollEvent = new MouseScrollEvent(event.getScrollDeltaX(), event.getScrollDeltaY());
+        addEventToBuffer(mouseScrollEvent);
+    }
+
+    public static void onMouseMove(long windowPointer, double xpos, double ypos){
+        if(SyncTimeline.getMode() != TLMode.REC)
+            return;
+        //MousePosEvent mousePosEvent = new MousePosEvent(xpos, ypos);
+        //addEventToBuffer(mousePosEvent);
+    }
     @SubscribeEvent
     public static void onPlayerCommand(ServerChatEvent event){
         String rawText = event.getRawText();
@@ -205,11 +230,9 @@ public class InputsManager {
         return false;
     }
 
-    @SubscribeEvent
-    public static void onMouseInput(InputEvent.MouseButton.Pre event){
-        MouseButtonEvent mouseButtonEvent = new MouseButtonEvent(event.getButton(), event.getAction(), event.getModifiers());
-        recordedInputsBuffer.add(mouseButtonEvent);
-        SLOGGER.info("detected mouse input: " + mouseButtonEvent.toLine());
+    private static void addEventToBuffer(MyInputEvent myInputEvent){
+        recordedInputsBuffer.add(myInputEvent);
+        SLOGGER.info("Recorded input event on frame: " + SyncTimeline.getFrame() + " class: " + myInputEvent.getClass());
     }
 
     public static List<MyInputEvent> getRecordedInputsBuffer(){
@@ -235,6 +258,7 @@ public class InputsManager {
 
         for (MyInputEvent ie : keyframe.recordedInputEvents) {
             ie.simulate(window, client);
+            PlayerSync.SLOGGER.info("Simulated event on frame: " + SyncTimeline.getFrame() + " " + ie.getClass());
         }
 
         //Execute the commands stored in the keyframe
