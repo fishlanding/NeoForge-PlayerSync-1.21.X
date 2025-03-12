@@ -37,6 +37,8 @@ public class MinecraftMixin {
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
 
+
+
         //InputsManager.simulateInputsFromKeyframe(keyframe);
         int i = 0;
         //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client

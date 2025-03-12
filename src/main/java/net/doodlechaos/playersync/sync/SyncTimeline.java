@@ -124,29 +124,12 @@ public class SyncTimeline {
                 );
             }
         }
-
     }
 
     public static int framesToScrub = 0;
     public static void scrubFrames(int amount){ //Can be positive or negative
         framesToScrub += amount;
     }
-
-/*    public static void advanceFrames(int count){
-        SLOGGER.info("advancing: " + count);
-        int nextFrame = frame + count;
-        if(nextFrame >= recordedKeyframes.size())
-            nextFrame = recordedKeyframes.size();
-        setFrame(nextFrame);
-    }
-
-    public static void backupFrames(int amount){
-        SLOGGER.info("backup: " + amount);
-        int nextFrame = frame - amount;
-        if(nextFrame <= 0)
-            nextFrame = 0;
-        setFrame(nextFrame);
-    }*/
 
     public static void setFrame(int value){
         if(frame == value)
@@ -246,7 +229,7 @@ public class SyncTimeline {
         SyncKeyframe keyframe = new SyncKeyframe(
                 frameNumber,
                 tickDelta,
-                player.position(),//lerpedPlayerPos,
+                player.getPosition(tickDelta),//player.position(),//lerpedPlayerPos,
                 player.getYRot(),
                 player.getXRot(),
                 player.getDeltaMovement(),
