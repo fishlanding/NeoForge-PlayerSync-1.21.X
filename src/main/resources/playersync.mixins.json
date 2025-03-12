@@ -6,6 +6,7 @@
     "ProjectileMixin"
   ],
   "client": [
+    "CameraMixin",
     "DeltaTrackerTimerMixin",
     "MinecraftMixin",
     "MouseHandlerMixin",

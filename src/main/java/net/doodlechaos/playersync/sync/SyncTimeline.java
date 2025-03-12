@@ -36,7 +36,7 @@ public class SyncTimeline {
     //private static boolean recording = false;
     //private static boolean playbackEnabled = false;
     private static boolean playbackPaused = false;
-    private static boolean playbackDetatched = false;
+    private static boolean playbackDetached = false;
 
     private static int frame = 0;
     private static int prevFrame = 0;
@@ -52,7 +52,7 @@ public class SyncTimeline {
     //public static boolean isPlaybackEnabled() {return playbackEnabled; }
     //public static boolean isRecording(){return recording;}
     public static boolean isPlaybackPaused(){return playbackPaused; }
-    public static boolean isPlaybackDetatched() {return playbackDetatched;}
+    public static boolean isPlaybackDetached() {return playbackDetached;}
     public static boolean isTickFrame() { return (getFrame() % 3) == 0;}
     public static boolean hasFrameChanged(){ return (getFrame() != getPrevFrame());}
     //public static boolean isLockstepMode() {return (/*isRecording() || */isPlaybackEnabled()); }
@@ -67,22 +67,61 @@ public class SyncTimeline {
         return recordedKeyframes;
     }
 
+    public static Vector3f keyframeCamEulerDegrees = new Vector3f();
+
     @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
         PoseStack poseStack = event.getGuiGraphics().pose();
 
-        // Build debug text string
-        String debugText = " deltaTick: " + client.getTimer().getGameTimeDeltaPartialTick(true);
+        // Get the main camera and its Euler angles (in radians)
+        Camera cam = client.gameRenderer.getMainCamera();
+        Vector3f euler = new Vector3f();
+        cam.rotation().getEulerAnglesYXZ(euler);
 
+        // Convert the Euler angles from radians to degrees
+        float xDeg = euler.x * (180.0f / (float)Math.PI);
+        float yDeg = euler.y * (180.0f / (float)Math.PI);
+        float zDeg = euler.z * (180.0f / (float)Math.PI);
+
+        // Define a mode string for a consistent layout (adjust as needed)
+        String modeStr;
+        switch (currMode) {
+            case TLMode.REC:
+                modeStr = "REC";
+                break;
+            case TLMode.PLAYBACK:
+                modeStr = "PLAYBACK";
+                break;
+            case TLMode.REC_COUNTDOWN:
+                modeStr = "COUNTDOWN";
+                break;
+            default:
+                modeStr = "NONE";
+                break;
+        }
+
+        // Build the base debug text with fixed-width fields:
+        // %6.2f prints a floating-point number in a 6-character wide field with 2 decimals.
+        // %-9s prints a left-justified string in a field 9 characters wide.
+        String debugText = String.format(
+                "Mode: %-9s | deltaTick: %6.2f | Euler: [x: %6.2f°, y: %6.2f°, z: %6.2f°]",
+                modeStr,
+                client.getTimer().getGameTimeDeltaPartialTick(true),
+                xDeg, yDeg, zDeg
+        );
+
+        // Append additional information based on the mode using fixed width as well.
         if (currMode == TLMode.REC) {
-            debugText += " recFrame: " + getRecFrame();
+            debugText += String.format(" | recFrame: %6d", getRecFrame());
         }
         if (currMode == TLMode.PLAYBACK) {
-            debugText += "detached:" + playbackDetatched + " playbackPaused:" + playbackPaused + " frame:" + frame;
+            // For booleans, we pad to 6 characters so that "true" becomes "true  " and "false" becomes "false "
+            debugText += String.format(" | detached: %-6s | playbackPaused: %-6s | frame: %6d",
+                    playbackDetached, playbackPaused, frame);
         }
 
-        // Draw debug text at position (10, 20) with white color (0xFFFFFF)
+        // Draw the debug text at a fixed position (10, 20) with white color (0xFFFFFF)
         client.font.drawInBatch(
                 debugText,
                 10,
@@ -93,9 +132,10 @@ public class SyncTimeline {
                 event.getGuiGraphics().bufferSource(), // MultiBufferSource
                 Font.DisplayMode.NORMAL,            // Display mode
                 0,                                  // background color (0 if none)
-                15728880                                            // packed light coordinates (0 if default)
+                15728880                           // packed light coordinates (0 if default)
         );
 
+        // Handle recording countdown overlay separately
         if (currMode == TLMode.REC_COUNTDOWN) {
             int framesElapsed = getFrame() - countdownStartFrame;
             int framesLeft = countdownDurationFrames - framesElapsed;
@@ -142,7 +182,7 @@ public class SyncTimeline {
 
         frame = value;
         SLOGGER.info("Set frame to: " + value);
-        setPlaybackDetatched(false);
+        setPlaybackDetached(false);
     }
 
     public static void setCurrMode(TLMode mode, boolean releaseKeysIfNecessary){
@@ -178,13 +218,12 @@ public class SyncTimeline {
         currMode = mode;
     }
 
-
-    public static void setPlaybackDetatched(boolean value){
-        if(playbackDetatched == value)
+    public static void setPlaybackDetached(boolean value){
+        if(playbackDetached == value)
             return;
-        playbackDetatched = value;
+        playbackDetached = value;
         SLOGGER.info("Set playback detatched: " + value);
-        if(playbackDetatched)
+        if(playbackDetached)
             InputsManager.releaseAllKeys();
     }
 
@@ -275,8 +314,9 @@ public class SyncTimeline {
 
         Vector3f euler = new Vector3f();
         keyframe.camRot.getEulerAnglesYXZ(euler);
+        keyframeCamEulerDegrees = new Vector3f(-(float)Math.toDegrees(euler.x), 180 -(float)Math.toDegrees(euler.y), -(float)Math.toDegrees(euler.z));
 
-        ((CameraAccessor)cam).invokeSetRotation(euler.y, euler.x, euler.z);
+        ((CameraAccessor)cam).invokeSetRotation(keyframeCamEulerDegrees.y, keyframeCamEulerDegrees.x, keyframeCamEulerDegrees.z);
         ((CameraAccessor)cam).invokeSetPosition(keyframe.camPos);
 
         //SLOGGER.info("done setting player from keyframe");

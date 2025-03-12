@@ -30,7 +30,7 @@ public class MinecraftMixin {
         if (SyncTimeline.getMode() != TLMode.PLAYBACK)
             return timer.advanceTime(timeMillis, renderLevel);
 
-        if(SyncTimeline.isPlaybackDetatched())
+        if(SyncTimeline.isPlaybackDetached())
             return timer.advanceTime(timeMillis, renderLevel);
 
         SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();

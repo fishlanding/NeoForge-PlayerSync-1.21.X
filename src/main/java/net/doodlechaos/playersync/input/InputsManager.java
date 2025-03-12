@@ -1,6 +1,5 @@
 package net.doodlechaos.playersync.input;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.doodlechaos.playersync.PlayerSync;
 import net.doodlechaos.playersync.input.containers.*;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
@@ -10,14 +9,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.common.Mod;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
@@ -229,10 +226,10 @@ public class InputsManager {
                 || isKeyPressed(window, GLFW.GLFW_KEY_A)
                 || isKeyPressed(window, GLFW.GLFW_KEY_S)
                 || isKeyPressed(window, GLFW.GLFW_KEY_D)) {
-            SyncTimeline.setPlaybackDetatched(true);
+            SyncTimeline.setPlaybackDetached(true);
         }
 
-        if(!SyncTimeline.isPlaybackDetatched()){ //I use space to move around while detatched, so don't allow it to toggle the playback
+        if(!SyncTimeline.isPlaybackDetached()){ //I use space to move around while detatched, so don't allow it to toggle the playback
             // SPACE toggles playback paused
             boolean spaceDown = isKeyPressed(window, GLFW.GLFW_KEY_SPACE);
             if (spaceDown && !wasSpaceKeyDown) {
