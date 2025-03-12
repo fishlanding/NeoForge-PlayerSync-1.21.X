@@ -127,8 +127,12 @@ public class SyncTimeline {
 
     }
 
+    public static int framesToScrub = 0;
+    public static void scrubFrames(int amount){ //Can be positive or negative
+        framesToScrub += amount;
+    }
 
-    public static void advanceFrames(int count){
+/*    public static void advanceFrames(int count){
         SLOGGER.info("advancing: " + count);
         int nextFrame = frame + count;
         if(nextFrame >= recordedKeyframes.size())
@@ -142,11 +146,17 @@ public class SyncTimeline {
         if(nextFrame <= 0)
             nextFrame = 0;
         setFrame(nextFrame);
-    }
+    }*/
 
     public static void setFrame(int value){
         if(frame == value)
             return;
+
+        if(value < 0) //Clamp within valid range
+            value = 0;
+        if(value >= recordedKeyframes.size())
+            value = recordedKeyframes.size();
+
         frame = value;
         SLOGGER.info("Set frame to: " + value);
         setPlaybackDetatched(false);

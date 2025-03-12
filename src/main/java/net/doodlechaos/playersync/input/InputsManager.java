@@ -159,9 +159,9 @@ public class InputsManager {
         boolean leftShift = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS;
 
         if(GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT) == GLFW.GLFW_PRESS)
-            SyncTimeline.advanceFrames(leftShift ? 2 : 1);
+            SyncTimeline.scrubFrames(leftShift ? 2 : 1);
         if(GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT) == GLFW.GLFW_PRESS)
-            SyncTimeline.backupFrames(leftShift ? 2 : 1);
+            SyncTimeline.scrubFrames(leftShift ? -2 : -1);
 
         if(isKeyPressed(window, GLFW.GLFW_KEY_DOWN))
             SyncTimeline.setFrame(0);
@@ -175,7 +175,7 @@ public class InputsManager {
         // Advance frame (Period key)
         boolean isPeriodKeyDown = isKeyPressed(window, GLFW.GLFW_KEY_PERIOD);
         if (isPeriodKeyDown && !wasPeriodKeyDown) {
-            SyncTimeline.advanceFrames(leftShift ? 2 : 1);
+            SyncTimeline.scrubFrames(leftShift ? 2 : 1);
             SLOGGER.info("Detected advance frame key press");
         }
         wasPeriodKeyDown = isPeriodKeyDown;
@@ -183,7 +183,7 @@ public class InputsManager {
         // Backup frame (Comma key)
         boolean isCommaKeyDown = isKeyPressed(window, GLFW.GLFW_KEY_COMMA);
         if (isCommaKeyDown && !wasCommaKeyDown) {
-            SyncTimeline.backupFrames(leftShift ? 2 : 1);
+            SyncTimeline.scrubFrames(leftShift ? -2 : -1);
             SLOGGER.info("Detected backup frame key press");
         }
         wasCommaKeyDown = isCommaKeyDown;

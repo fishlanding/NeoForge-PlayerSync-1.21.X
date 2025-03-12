@@ -2,9 +2,11 @@ package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.command.RecordCommands;
+import net.doodlechaos.playersync.command.RenderCommands;
 import net.doodlechaos.playersync.command.TickDeltaCommand;
 import net.doodlechaos.playersync.command.TimelineCommands;
 import net.minecraft.commands.CommandSourceStack;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
@@ -59,6 +61,7 @@ public class PlayerSync
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
         TimelineCommands.registerTimelineCommands(dispatcher);
         RecordCommands.registerRecordCommands(dispatcher);
+        RenderCommands.registerRenderCommands(dispatcher);
 
         SLOGGER.info("Done registering commands");
     }

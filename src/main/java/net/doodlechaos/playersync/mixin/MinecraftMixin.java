@@ -82,6 +82,9 @@ public class MinecraftMixin {
         if(SyncTimeline.getMode() == TLMode.REC
                 || SyncTimeline.getMode() == TLMode.REC_COUNTDOWN
                 || (SyncTimeline.getMode() == TLMode.PLAYBACK && !SyncTimeline.isPlaybackPaused()))
-            SyncTimeline.advanceFrames(1); //DO this here so that the server and client are on the same frame
+            SyncTimeline.scrubFrames(1); //DO this here so that the server and client are on the same frame
+
+        SyncTimeline.setFrame(SyncTimeline.getFrame() + SyncTimeline.framesToScrub);
+        SyncTimeline.framesToScrub = 0;
     }
 }
