@@ -17,7 +17,7 @@ import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 /**
  * A custom list screen using Forge/NeoForge classes.
  */
-public class MyListScreen extends Screen {
+public class CommandListScreen extends Screen {
 
     private final Minecraft minecraft;
     private final List<String> items;      // The data source for our list
@@ -28,8 +28,8 @@ public class MyListScreen extends Screen {
     /**
      * Basic constructor. Expects a reference to the Minecraft instance and some initial items.
      */
-    public MyListScreen(Minecraft minecraft, List<String> initialItems) {
-        super(Component.literal("Custom List Screen"));
+    public CommandListScreen(Minecraft minecraft, int frameNum, List<String> initialItems) {
+        super(Component.literal("FRAME " + frameNum + " Commands"));
         this.minecraft = minecraft;
         this.items = initialItems;
     }
@@ -70,10 +70,6 @@ public class MyListScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
         this.listWidget.render(guiGraphics, mouseX, mouseY, partialTicks);
-
-        //this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
-
-        // Render everything else
 
         // Draw title at the top
         int textWidth = this.font.width(this.title.getString());
@@ -123,13 +119,13 @@ public class MyListScreen extends Screen {
         @Override
         protected int getScrollbarPosition() {
             // Position the scrollbar near the right edge
-            return MyListScreen.this.width - 10;
+            return CommandListScreen.this.width - 10;
         }
 
         @Override
         public int getRowWidth() {
             // Use nearly the full screen width minus some padding
-            return MyListScreen.this.width - 20;
+            return CommandListScreen.this.width - 20;
         }
 
         //------------------------------------------------------------------------------
@@ -157,8 +153,8 @@ public class MyListScreen extends Screen {
                 int number = index + 1;
                 String numberString = String.valueOf(number);
                 int numberX = left + 2;
-                int numberY = top + (ENTRY_HEIGHT - MyListScreen.this.font.lineHeight) / 2;
-                guiGraphics.drawString(MyListScreen.this.font, numberString, numberX, numberY, 0xFFFFFF, false);
+                int numberY = top + (ENTRY_HEIGHT - CommandListScreen.this.font.lineHeight) / 2;
+                guiGraphics.drawString(CommandListScreen.this.font, numberString, numberX, numberY, 0xFFFFFF, false);
 
                 // Some spacing after the number
                 final int numberWidth = 20;
@@ -200,7 +196,7 @@ public class MyListScreen extends Screen {
                     int textFieldX = offsetX + 80;
                     int textFieldY = top + (ENTRY_HEIGHT - 16) / 2;
                     int textFieldWidth = entryWidth - numberWidth - 85;
-                    this.textField = new EditBox(MyListScreen.this.font, textFieldX, textFieldY,
+                    this.textField = new EditBox(CommandListScreen.this.font, textFieldX, textFieldY,
                             textFieldWidth, 16, Component.literal("entry"));
                     this.textField.setMaxLength(10000);
                     this.textField.setValue(this.initialText);
@@ -246,7 +242,7 @@ public class MyListScreen extends Screen {
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 // Let the text field handle clicks
                 if (this.textField != null && this.textField.mouseClicked(mouseX, mouseY, button)) {
-                    MyListScreen.this.setFocused(this.textField);
+                    CommandListScreen.this.setFocused(this.textField);
                     return true;
                 }
                 // Buttons

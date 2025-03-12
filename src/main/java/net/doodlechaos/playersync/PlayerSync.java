@@ -9,9 +9,7 @@ import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
@@ -86,7 +84,7 @@ public class PlayerSync
         {
             SyncKeyframe key = SyncTimeline.getCurrKeyframe();
             if(key != null)
-                mc.setScreen(new MyListScreen(mc, key.cmds));
+                mc.setScreen(new CommandListScreen(mc, (int)key.frame, key.cmds));
         }
     }
 

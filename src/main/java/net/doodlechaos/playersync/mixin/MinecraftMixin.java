@@ -40,14 +40,17 @@ public class MinecraftMixin {
         IntegratedServer server = mc.getSingleplayerServer();
 
         int i = 0;
-        //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
         boolean istickFrame = SyncTimeline.isTickFrame();
         boolean hasFrameChanged = SyncTimeline.hasFrameChanged();
 
-        if(hasFrameChanged)
-            InputsManager.simulateInputsFromKeyframe(keyframe);
+        if(!hasFrameChanged)
+            return 0;
 
-        if(istickFrame && hasFrameChanged){
+        //Changing REAL timeline time
+        //If playback is playing, or if playback is paused and the frame has changed, update in lockstep
+        InputsManager.simulateInputsFromKeyframe(keyframe);
+
+        if(istickFrame){
             // If the integrated server exists, tick it on its own thread and wait until it completes.
             if (server != null) {
                 CountDownLatch latch = new CountDownLatch(1);
@@ -64,10 +67,9 @@ public class MinecraftMixin {
                     Thread.currentThread().interrupt();
                 }
             }
-
             i = 1;
         }
-        SyncTimeline.updatePrevFrame(); //IMPORTANT: Immeidately after I'm checking if the frame is dirty, then I update the prevFrame. This way, the inputs can be read and change the currFrame without that info being lost
+        SyncTimeline.updatePrevFrame(); //IMPORTANT: Immediately after I'm checking if the frame is dirty, then I update the prevFrame. This way, the inputs can be read and change the currFrame without that info being lost
         //Updating the prevFrame must happen BEFORE I read the inputs from the player (which can modify the currFrame)
 
         return i;
