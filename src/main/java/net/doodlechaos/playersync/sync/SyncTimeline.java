@@ -79,7 +79,7 @@ public class SyncTimeline {
             debugText += " recFrame: " + getRecFrame();
         }
         if (currMode == TLMode.PLAYBACK) {
-            debugText += " playbackPaused:" + playbackPaused + " frame: " + frame;
+            debugText += "detached:" + playbackDetatched + " playbackPaused:" + playbackPaused + " frame:" + frame;
         }
 
         // Draw debug text at position (10, 20) with white color (0xFFFFFF)

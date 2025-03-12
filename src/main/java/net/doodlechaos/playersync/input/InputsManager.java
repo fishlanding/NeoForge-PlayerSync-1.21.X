@@ -86,7 +86,10 @@ public class InputsManager {
             }
         }
 
-        if(mode != SyncTimeline.TLMode.PLAYBACK)
+        if(mode != TLMode.PLAYBACK)
+            return;
+
+        if(SyncTimeline.isPlaybackDetatched())
             return;
 
         if(keyEvent.key == GLFW.GLFW_KEY_SPACE && keyEvent.action == GLFW.GLFW_PRESS)

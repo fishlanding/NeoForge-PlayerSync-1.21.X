@@ -29,17 +29,17 @@ public class MinecraftMixin {
         if (SyncTimeline.getMode() != TLMode.PLAYBACK)
             return timer.advanceTime(timeMillis, renderLevel);
 
-        SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+        if(SyncTimeline.isPlaybackDetatched())
+            return timer.advanceTime(timeMillis, renderLevel);
 
-        if(!SyncTimeline.isPlaybackDetatched())
-            SyncTimeline.setPlayerFromKeyframe(keyframe);
+        SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
+        SyncTimeline.setPlayerFromKeyframe(keyframe);
 
         Minecraft mc = Minecraft.getInstance();
         IntegratedServer server = mc.getSingleplayerServer();
 
-
-
         //InputsManager.simulateInputsFromKeyframe(keyframe);
+        
         int i = 0;
         //If we're recording, or if playback is playing, or if playback is paused and the frame has changed, tick the server+client
         boolean istickFrame = SyncTimeline.isTickFrame();
