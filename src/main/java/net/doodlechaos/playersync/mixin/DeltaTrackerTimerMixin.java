@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.PlayerSync;
+import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.client.DeltaTracker;
 import net.neoforged.api.distmarker.Dist;

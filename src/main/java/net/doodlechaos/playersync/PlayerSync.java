@@ -1,15 +1,15 @@
 package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
-import net.doodlechaos.playersync.command.RecordCommands;
-import net.doodlechaos.playersync.command.RenderCommands;
-import net.doodlechaos.playersync.command.TickDeltaCommand;
-import net.doodlechaos.playersync.command.TimelineCommands;
+import net.doodlechaos.playersync.command.*;
+import net.doodlechaos.playersync.sync.AudioSync;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
@@ -65,6 +65,7 @@ public class PlayerSync
         TimelineCommands.registerTimelineCommands(dispatcher);
         RecordCommands.registerRecordCommands(dispatcher);
         RenderCommands.registerRenderCommands(dispatcher);
+        TestCommands.registerTestCommands(dispatcher);
 
         SLOGGER.info("Done registering commands");
     }
@@ -77,6 +78,13 @@ public class PlayerSync
     }
 
     @SubscribeEvent
+    public void onPlayerJoinWorld(PlayerEvent.PlayerLoggedInEvent event){
+        String audioPath = "C:\\Users\\marky\\Downloads\\mainThemeRemix.ogg";
+        AudioSync.loadAudio(audioPath);
+        event.getEntity().sendSystemMessage(Component.literal("loaded audio: " + audioPath));
+    }
+
+                                  @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event){
         Minecraft mc = Minecraft.getInstance();
 

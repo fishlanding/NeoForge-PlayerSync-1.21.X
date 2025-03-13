@@ -68,11 +68,13 @@ public class SyncTimeline {
     }
 
     public static Vector3f keyframeCamEulerDegrees = new Vector3f();
+    public static boolean allowEntityMixinFlag = false;
 
     @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
         PoseStack poseStack = event.getGuiGraphics().pose();
+        LocalPlayer player = client.player;
 
         // Get the main camera and its Euler angles (in radians)
         Camera cam = client.gameRenderer.getMainCamera();
@@ -134,6 +136,29 @@ public class SyncTimeline {
                 0,                                  // background color (0 if none)
                 15728880                           // packed light coordinates (0 if default)
         );
+
+        if(player != null){
+            String playerOldAndNewPosDebug = String.format(
+                    "Player: old pos [x: %6.2f, y: %6.2f, z: %6.2f] | curr pos [x: %6.2f, y: %6.2f, z: %6.2f]",
+                    player.xo, player.yo, player.zo,
+                    player.getX(), player.getY(), player.getZ()
+            );
+
+            // Draw the debug text at a fixed position (10, 20) with white color (0xFFFFFF)
+            client.font.drawInBatch(
+                    playerOldAndNewPosDebug,
+                    10,
+                    40,
+                    0xFFFFFF,                           // text color
+                    false,                              // dropShadow flag
+                    poseStack.last().pose(),            // Matrix4f from the PoseStack
+                    event.getGuiGraphics().bufferSource(), // MultiBufferSource
+                    Font.DisplayMode.NORMAL,            // Display mode
+                    0,                                  // background color (0 if none)
+                    15728880                           // packed light coordinates (0 if default)
+            );
+        }
+
 
         // Handle recording countdown overlay separately
         if (currMode == TLMode.REC_COUNTDOWN) {
@@ -268,7 +293,7 @@ public class SyncTimeline {
         SyncKeyframe keyframe = new SyncKeyframe(
                 frameNumber,
                 tickDelta,
-                player.getPosition(tickDelta),//player.position(),//lerpedPlayerPos,
+                player.getPosition(tickDelta),//,//lerpedPlayerPos,
                 player.getYRot(),
                 player.getXRot(),
                 player.getDeltaMovement(),
@@ -307,7 +332,13 @@ public class SyncTimeline {
         if(keyframe == null)
             return;
 
+        //My objective is to only allow the player position and old positions to be set here during playback
+        allowEntityMixinFlag = true;
+        player.setOldPosAndRot(); //<< this prevents the deltaTick from affecting the player position (we're recording the position at 60fps, so no need for interpolation
         player.setPos(keyframe.playerPos);
+        allowEntityMixinFlag = false;
+
+
         player.setYRot(keyframe.playerYaw);
         player.setXRot(keyframe.playerPitch);
         player.setDeltaMovement(keyframe.playerVel);

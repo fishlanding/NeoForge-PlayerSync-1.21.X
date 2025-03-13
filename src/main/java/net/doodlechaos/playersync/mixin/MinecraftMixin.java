@@ -2,6 +2,7 @@ package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.input.InputsManager;
+import net.doodlechaos.playersync.sync.AudioSync;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
@@ -93,5 +94,6 @@ public class MinecraftMixin {
 
         SyncTimeline.setFrame(SyncTimeline.getFrame() + SyncTimeline.framesToScrub);
         SyncTimeline.framesToScrub = 0;
+        AudioSync.updateAudio(SyncTimeline.getPlayheadTime());
     }
 }

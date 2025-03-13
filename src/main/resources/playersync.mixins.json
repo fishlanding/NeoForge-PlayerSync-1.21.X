@@ -3,6 +3,7 @@
   "package": "net.doodlechaos.playersync.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "EntityMixin",
     "ProjectileMixin"
   ],
   "client": [
