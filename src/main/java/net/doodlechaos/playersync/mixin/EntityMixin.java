@@ -2,33 +2,37 @@ package net.doodlechaos.playersync.mixin;
 
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
+
 @Mixin(Entity.class)
 public class EntityMixin {
 
-    /**
-     * This cancels any attempt to update the 'old' position fields (xo, yo, zo, xOld, yOld, zOld)
-     * if we're in playback mode and not allowed to modify positions.
-     */
+    @SuppressWarnings("ConstantConditions")
     @Inject(method = "setOldPosAndRot", at = @At("HEAD"), cancellable = true)
     private void onSetOldPosAndRot(CallbackInfo ci) {
-        if (!SyncTimeline.allowEntityMixinFlag && SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK) {
+        if (!SyncTimeline.allowEntityMixinFlag
+                && SyncTimeline.getMode() == TLMode.PLAYBACK
+                && !SyncTimeline.isPlaybackDetached()
+                && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)) {
             ci.cancel();
         }
     }
 
-    /**
-     * This cancels the actual position updates (setPosRaw) if we're in playback mode
-     * and not allowed to modify the entity position.
-     */
+    @SuppressWarnings("ConstantConditions")
     @Inject(method = "setPosRaw(DDD)V", at = @At("HEAD"), cancellable = true)
     private void onSetPosRaw(double x, double y, double z, CallbackInfo ci) {
-        if (!SyncTimeline.allowEntityMixinFlag && SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK) {
+        if (!SyncTimeline.allowEntityMixinFlag
+                && SyncTimeline.getMode() == TLMode.PLAYBACK
+                && !SyncTimeline.isPlaybackDetached()
+                && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)) {
             ci.cancel();
         }
     }
+
 }

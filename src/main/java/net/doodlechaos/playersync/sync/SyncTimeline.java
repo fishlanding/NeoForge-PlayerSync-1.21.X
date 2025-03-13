@@ -276,7 +276,7 @@ public class SyncTimeline {
             return;
         }
 
-        float tickDelta = client.getTimer().getGameTimeDeltaPartialTick(true);
+        float tickDelta = client.getTimer().getGameTimeDeltaPartialTick(true); //We're not in lockstep while recording, so this tickdelta will be "real"
         if(frame == 0){
             LOGGER.error("playheadIndex: " + frame + " tickDelta: " + tickDelta);
         }
@@ -293,7 +293,7 @@ public class SyncTimeline {
         SyncKeyframe keyframe = new SyncKeyframe(
                 frameNumber,
                 tickDelta,
-                player.getPosition(tickDelta),//,//lerpedPlayerPos,
+                player.getPosition(tickDelta), //Use the "real" tickdelta
                 player.getYRot(),
                 player.getXRot(),
                 player.getDeltaMovement(),
