@@ -2,13 +2,11 @@ package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.command.*;
-import net.doodlechaos.playersync.input.InputsManager;
 import net.doodlechaos.playersync.sync.AudioSync;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.event.ClientChatEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -38,6 +36,7 @@ public class PlayerSync
     public static final String MOD_ID = "playersync";
     public static final Logger SLOGGER = LogUtils.getLogger();
 
+    public static boolean debugTextOverlay = false;
     public static boolean overrideTickDelta;
     public static float myTickDelta = 0;
     public static boolean OpenKeyCommandsEditScreen = false;
@@ -64,7 +63,7 @@ public class PlayerSync
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
 
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
-        TimelineCommands.registerTimelineCommands(dispatcher);
+        TimelineCommands.registerPlayerSyncCommands(dispatcher);
         RecordCommands.registerRecordCommands(dispatcher);
         RenderCommands.registerRenderCommands(dispatcher);
         TestCommands.registerTestCommands(dispatcher);

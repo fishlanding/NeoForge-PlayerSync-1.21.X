@@ -103,11 +103,13 @@ public class SyncTimeline {
         // --- Build up the debug info using a StringBuilder ---
         StringBuilder debugBuilder = new StringBuilder();
 
-        debugBuilder
-                .append(String.format("Mode: %s\n", modeStr))
-                .append(String.format("deltaTick: %.2f\n",
-                        client.getTimer().getGameTimeDeltaPartialTick(true)))
-                .append(String.format("Euler (degrees): X=%.2f, Y=%.2f, Z=%.2f\n", xDeg, yDeg, zDeg));
+        debugBuilder.append(String.format("Mode: %s\n", modeStr));
+        if(PlayerSync.debugTextOverlay){
+            debugBuilder.append(String.format("deltaTick: %.2f\n",
+                    client.getTimer().getGameTimeDeltaPartialTick(true)))
+                    .append(String.format("Euler (degrees): X=%.2f, Y=%.2f, Z=%.2f\n", xDeg, yDeg, zDeg));
+        }
+
 
         // Additional lines for certain modes
         if (currMode == TLMode.REC) {
@@ -121,7 +123,7 @@ public class SyncTimeline {
         }
 
         // --- If the player exists, show client position/movement and rotation ---
-        if (player != null) {
+        if (player != null && PlayerSync.debugTextOverlay) {
             // Current and previous position
             debugBuilder.append(
                     String.format(
