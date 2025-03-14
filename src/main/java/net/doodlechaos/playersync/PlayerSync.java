@@ -63,10 +63,10 @@ public class PlayerSync
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
 
         TickDeltaCommand.registerTickDeltaCommand(dispatcher);
-        TimelineCommands.registerPlayerSyncCommands(dispatcher);
+        PlayerSyncCommands.registerPlayerSyncCommands(dispatcher);
         RecordCommands.registerRecordCommands(dispatcher);
         RenderCommands.registerRenderCommands(dispatcher);
-        TestCommands.registerTestCommands(dispatcher);
+        TimelineCommands.registerTestCommands(dispatcher);
 
         SLOGGER.info("Done registering commands");
     }

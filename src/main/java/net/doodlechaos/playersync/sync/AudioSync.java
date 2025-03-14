@@ -141,7 +141,7 @@ public class AudioSync {
             return;
         }
 
-        float musicVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MUSIC);
+        float musicVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.RECORDS); //Using this instead of music so I can keep the regular game music off
         if(musicVolume != prevMusicVolume){
             AL10.alSourcef(forwardSourceId, AL10.AL_GAIN, musicVolume);
             AL10.alSourcef(reverseSourceId, AL10.AL_GAIN, musicVolume);

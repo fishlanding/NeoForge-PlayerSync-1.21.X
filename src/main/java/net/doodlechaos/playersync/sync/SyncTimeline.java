@@ -42,8 +42,8 @@ public class SyncTimeline {
     private static int prevFrame = 0;
     public static void updatePrevFrame(){prevFrame = frame;}
 
-    private static final int COUNTDOWN_DURATION_FRAMES = 3 * 60; // 3 seconds at 60 fps
-    private static int countdownDurationFrames = COUNTDOWN_DURATION_FRAMES;
+    //private static final int COUNTDOWN_DURATION_FRAMES = 3 * 60; // 3 seconds at 60 fps
+    public static int countdownDurationFramesTotal = 3 * 60;
     private static int countdownStartFrame = 0;
 
     private static final List<SyncKeyframe> recordedKeyframes = new ArrayList<>();
@@ -225,7 +225,7 @@ public class SyncTimeline {
         // --- Handle the separate countdown text in the center of the screen ---
         if (currMode == TLMode.REC_COUNTDOWN) {
             int framesElapsed = getFrame() - countdownStartFrame;
-            int framesLeft = countdownDurationFrames - framesElapsed;
+            int framesLeft = countdownDurationFramesTotal - framesElapsed;
             float countdownSeconds = framesLeft / 60.0f;
 
             if (countdownSeconds <= 0) {
@@ -286,12 +286,12 @@ public class SyncTimeline {
                 return;
             }
             // Clamp countdown duration if fewer than 3 seconds (COUNTDOWN_DURATION_FRAMES) of frames exist
-            countdownDurationFrames = Math.min(COUNTDOWN_DURATION_FRAMES, totalFrames);
-            int targetStart = totalFrames - countdownDurationFrames;
+            countdownDurationFramesTotal = Math.min(countdownDurationFramesTotal, totalFrames);
+            int targetStart = totalFrames - countdownDurationFramesTotal;
             setFrame(targetStart);
             countdownStartFrame = targetStart;
-            SLOGGER.info("Starting recording countdown with " + countdownDurationFrames +
-                    " frames (" + (countdownDurationFrames / 60.0f) + " seconds) countdown!");
+            SLOGGER.info("Starting recording countdown with " + countdownDurationFramesTotal +
+                    " frames (" + (countdownDurationFramesTotal / 60.0f) + " seconds) countdown!");
         }
 
         if(mode == TLMode.REC)
@@ -443,7 +443,7 @@ public class SyncTimeline {
         }
     }
 
-    public static void LoadRecFromFile(String recName) {
+    public static boolean LoadRecFromFile(String recName) {
         File recFile = new File(PlayerSyncFolderUtils.getPlayerSyncFolder(), recName);
         Gson gson = new GsonBuilder()
                 .registerTypeAdapter(Vec3.class, new SyncKeyframe.Vec3Adapter())
@@ -462,8 +462,10 @@ public class SyncTimeline {
             recordedKeyframes.clear();
             recordedKeyframes.addAll(loadedKeyframes);
             LOGGER.info("Recording loaded from file: " + recFile.getAbsolutePath());
+            return true;
         } catch (IOException e) {
             LOGGER.error("Error loading recording from file: " + recFile.getAbsolutePath(), e);
+            return false;
         }
     }
 

@@ -1,6 +1,7 @@
 package net.doodlechaos.playersync.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
@@ -62,18 +63,29 @@ public class RecordCommands {
                                 .executes(ctx -> {
                                     String filename = StringArgumentType.getString(ctx, "filename");
 
-                                    SyncTimeline.LoadRecFromFile(filename);
-                                    ctx.getSource().sendSystemMessage(Component.literal("Loaded " + filename));
+                                    boolean success = SyncTimeline.LoadRecFromFile(filename);
+                                    if(success)
+                                        ctx.getSource().sendSystemMessage(Component.literal("Loaded " + filename));
+                                    else
+                                        ctx.getSource().sendSystemMessage(Component.literal("FAILED to load " + filename));
                                     return 1;
                                 })
                         )
                 )
-                .then(literal("testScreen")
+                .then(literal("setCountdownDuration")
+                        .then(Commands.argument("seconds", IntegerArgumentType.integer(3))
+                            .executes(ctx -> {
+                                int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+                                SyncTimeline.countdownDurationFramesTotal = 60 * seconds;
+                                ctx.getSource().sendSystemMessage(Component.literal("Set countdown duration frames to: " + SyncTimeline.countdownDurationFramesTotal));
+                                return 1;
+                            })
+                        )
                         .executes(ctx -> {
-                            //PlayerSync.OpenScreen = !PlayerSync.OpenScreen;
-                            //ctx.getSource().sendSystemMessage(Component.literal("Cleared recorded keyframes"));
+                            ctx.getSource().sendSystemMessage(Component.literal("Current countdown duration frames: " + SyncTimeline.countdownDurationFramesTotal));
                             return 1;
                         })
+
                 )
         );
     }
