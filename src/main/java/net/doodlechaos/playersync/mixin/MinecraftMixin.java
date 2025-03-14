@@ -10,6 +10,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.concurrent.CountDownLatch;
@@ -28,7 +29,7 @@ public class MinecraftMixin {
     )
     private int redirectAdvanceTime(DeltaTracker.Timer timer, long timeMillis, boolean renderLevel) {
 
-        if (SyncTimeline.getMode() != TLMode.PLAYBACK)
+        if (SyncTimeline.getMode() != TLMode.PLAYBACK && SyncTimeline.getMode() != TLMode.REC_COUNTDOWN)
             return timer.advanceTime(timeMillis, renderLevel);
 
         if(SyncTimeline.isPlaybackDetached())
@@ -76,6 +77,9 @@ public class MinecraftMixin {
         return i;
     }
 
+    @Unique
+    private int renderFrameWaitCounter = 0;
+
     //At the end of runTick
     @Inject(method = "runTick", at = @At("TAIL"), cancellable = true)
     private void onEndRunTick(boolean renderLevel, CallbackInfo ci){
@@ -84,7 +88,12 @@ public class MinecraftMixin {
         }
 
         if(VideoRenderer.isRendering()){
-            VideoRenderer.CaptureFrame();
+            renderFrameWaitCounter++;
+            if(renderFrameWaitCounter > 3){
+                renderFrameWaitCounter = 0;
+                VideoRenderer.CaptureFrame();
+                SyncTimeline.scrubFrames(1);
+            }
         }
 
         if(SyncTimeline.getMode() == TLMode.REC

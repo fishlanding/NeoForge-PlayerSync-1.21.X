@@ -61,7 +61,7 @@ public class CommandListScreen extends Screen {
             this.items.clear();
             this.items.addAll(this.listWidget.getStrings());
             this.onClose();
-            PlayerSync.OpenScreen = false;  // If you have a toggle in PlayerSync
+            PlayerSync.OpenKeyCommandsEditScreen = false;  // If you have a toggle in PlayerSync
         }).bounds(this.width / 2 + 10, this.height - 28, 40, 20).build();
         this.addRenderableWidget(this.doneButton);
     }

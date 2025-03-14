@@ -1,5 +1,7 @@
 package net.doodlechaos.playersync.sync;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundSource;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.system.MemoryUtil;
 import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
@@ -133,10 +135,18 @@ public class AudioSync {
     }
 
 
+    private static float prevMusicVolume = 0f;
     public static void updateAudio(float timelineSeconds) {
         if (!loaded) {
             return;
         }
+
+        float musicVolume = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MUSIC);
+        if(musicVolume != prevMusicVolume){
+            AL10.alSourcef(forwardSourceId, AL10.AL_GAIN, musicVolume);
+            AL10.alSourcef(reverseSourceId, AL10.AL_GAIN, musicVolume);
+        }
+        prevMusicVolume = musicVolume;
 
         // Calculate delta time automatically
         long currentTimeNanos = System.nanoTime();

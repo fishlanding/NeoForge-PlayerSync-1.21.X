@@ -16,8 +16,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.ClientChatEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.lwjgl.glfw.GLFW;
@@ -41,6 +43,7 @@ public class InputsManager {
     private static boolean wasPKeyDown = false;
     private static boolean wasSpaceKeyDown = false;
     private static boolean wasCKeyDown = false;
+    private static boolean wasTildeKeyDown = false;
 
     private static boolean wasPeriodKeyDown = false;
     private static boolean wasCommaKeyDown = false;
@@ -81,22 +84,12 @@ public class InputsManager {
     }
 
     @SubscribeEvent
-    public static void onPlayerCommand(ServerChatEvent event) {
-        String rawText = event.getRawText();
-        // If it starts with "/", store it as our "mostRecentCommand".
-        if (rawText.startsWith("/")) {
-            mostRecentCommand = rawText;
-            SLOGGER.info("Captured command: " + rawText);
-        }
-    }
-
-    @SubscribeEvent
     public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
         // If the player is left-clicking with a Wooden Axe, store a WorldEdit-like "//pos1" command
         Player player = event.getEntity();
         if (player.getMainHandItem().getItem() == Items.WOODEN_AXE) {
             BlockPos pos = event.getPos();
-            InputsManager.mostRecentCommand = "//pos1 " + pos.getX() + " " + pos.getY() + " " + pos.getZ();
+            InputsManager.mostRecentCommand = "//pos1 " + pos.getX() + "," + pos.getY() + "," + pos.getZ();
         }
     }
 
@@ -106,7 +99,7 @@ public class InputsManager {
         Player player = event.getEntity();
         if (player.getMainHandItem().getItem() == Items.WOODEN_AXE) {
             BlockPos pos = event.getPos();
-            InputsManager.mostRecentCommand = "//pos2 " + pos.getX() + " " + pos.getY() + " " + pos.getZ();
+            InputsManager.mostRecentCommand = "//pos2 " + pos.getX() + "," + pos.getY() + "," + pos.getZ();
         }
     }
 
@@ -119,7 +112,7 @@ public class InputsManager {
         Minecraft client = Minecraft.getInstance();
         // If we have a GUI open (ChatScreen excepted if you want?), you might skip or allow partial logic:
         // For this example, I'm skipping toggles if any screen is open *except* if you want Chat to block them:
-        if (client.screen instanceof ChatScreen) {
+        if (client.screen != null) {
             return;
         }
 
@@ -156,6 +149,13 @@ public class InputsManager {
             }
         }
         wasPKeyDown = pDown;
+
+        boolean tildeDown = isKeyPressed(window, GLFW.GLFW_KEY_GRAVE_ACCENT);
+        if(tildeDown && !wasTildeKeyDown){
+            PlayerSync.OpenKeyCommandsEditScreen = !PlayerSync.OpenKeyCommandsEditScreen;
+        }
+        wasTildeKeyDown = tildeDown;
+
 
         // If we are now in playback mode, poll more playback-specific controls:
         if (mode == TLMode.PLAYBACK) {
@@ -302,6 +302,8 @@ public class InputsManager {
     }
 
     public static void ExecuteCommandAsPlayer(String command) {
+
+
         IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
         if (server == null) {
             SLOGGER.error("Minecraft server is not available.");
@@ -314,27 +316,11 @@ public class InputsManager {
             return;
         }
 
-        ServerPlayer player = server.getPlayerList().getPlayer(clientPlayer.getUUID());
-        if (player == null) {
-            SLOGGER.error("No corresponding server player found.");
-            return;
-        }
-
         // Strip leading slash if present
         if (command.startsWith("/")) {
             command = command.substring(1);
         }
 
-        final String commandToExecute = command;
-        server.execute(() -> {
-            try {
-                var dispatcher = server.getCommands().getDispatcher();
-                var parsedCommand = dispatcher.parse(commandToExecute, player.createCommandSourceStack());
-                dispatcher.execute(parsedCommand);
-                SLOGGER.info("Command executed successfully: " + commandToExecute);
-            } catch (Exception e) {
-                SLOGGER.error("Failed to execute command [" + commandToExecute + "]: " + e);
-            }
-        });
+        clientPlayer.connection.sendCommand(command);
     }
 }

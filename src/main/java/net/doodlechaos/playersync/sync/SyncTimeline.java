@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.doodlechaos.playersync.PlayerSync;
 import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.input.InputsManager;
+import net.doodlechaos.playersync.input.containers.MyInputEvent;
 import net.doodlechaos.playersync.mixin.accessor.CameraAccessor;
 import net.doodlechaos.playersync.utils.PlayerSyncFolderUtils;
 import net.minecraft.client.Camera;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -33,8 +35,6 @@ public class SyncTimeline {
 
     public enum TLMode {REC_COUNTDOWN, REC, PLAYBACK, NONE}
     private static TLMode currMode = TLMode.NONE;
-    //private static boolean recording = false;
-    //private static boolean playbackEnabled = false;
     private static boolean playbackPaused = false;
     private static boolean playbackDetached = false;
 
@@ -49,13 +49,10 @@ public class SyncTimeline {
     private static final List<SyncKeyframe> recordedKeyframes = new ArrayList<>();
 
     public static TLMode getMode() {return currMode;}
-    //public static boolean isPlaybackEnabled() {return playbackEnabled; }
-    //public static boolean isRecording(){return recording;}
     public static boolean isPlaybackPaused(){return playbackPaused; }
     public static boolean isPlaybackDetached() {return playbackDetached;}
     public static boolean isTickFrame() { return (getFrame() % 3) == 0;}
     public static boolean hasFrameChanged(){ return (getFrame() != getPrevFrame());}
-    //public static boolean isLockstepMode() {return (/*isRecording() || */isPlaybackEnabled()); }
 
     public static int getFrame(){return frame;}
     public static int getPrevFrame(){return prevFrame;}
@@ -89,13 +86,13 @@ public class SyncTimeline {
         // Define a mode string for a consistent layout (adjust as needed)
         String modeStr;
         switch (currMode) {
-            case TLMode.REC:
+            case REC:
                 modeStr = "REC";
                 break;
-            case TLMode.PLAYBACK:
+            case PLAYBACK:
                 modeStr = "PLAYBACK";
                 break;
-            case TLMode.REC_COUNTDOWN:
+            case REC_COUNTDOWN:
                 modeStr = "COUNTDOWN";
                 break;
             default:
@@ -103,9 +100,7 @@ public class SyncTimeline {
                 break;
         }
 
-        // Build the base debug text with fixed-width fields:
-        // %6.2f prints a floating-point number in a 6-character wide field with 2 decimals.
-        // %-9s prints a left-justified string in a field 9 characters wide.
+        // Build the base debug text with fixed-width fields
         String debugText = String.format(
                 "Mode: %-9s | deltaTick: %6.2f | Euler: [x: %6.2f°, y: %6.2f°, z: %6.2f°]",
                 modeStr,
@@ -113,52 +108,90 @@ public class SyncTimeline {
                 xDeg, yDeg, zDeg
         );
 
-        // Append additional information based on the mode using fixed width as well.
+        // Append additional information based on the mode
         if (currMode == TLMode.REC) {
             debugText += String.format(" | recFrame: %6d", getRecFrame());
         }
         if (currMode == TLMode.PLAYBACK) {
-            // For booleans, we pad to 6 characters so that "true" becomes "true  " and "false" becomes "false "
             debugText += String.format(" | detached: %-6s | playbackPaused: %-6s | frame: %6d",
                     playbackDetached, playbackPaused, frame);
         }
 
-        // Draw the debug text at a fixed position (10, 20) with white color (0xFFFFFF)
-        client.font.drawInBatch(
-                debugText,
-                10,
-                20,
-                0xFFFFFF,                           // text color
-                false,                              // dropShadow flag
-                poseStack.last().pose(),            // Matrix4f from the PoseStack
-                event.getGuiGraphics().bufferSource(), // MultiBufferSource
-                Font.DisplayMode.NORMAL,            // Display mode
-                0,                                  // background color (0 if none)
-                15728880                           // packed light coordinates (0 if default)
-        );
+        // Calculate maximum width for wrapping (with padding)
+        int maxWidth = client.getWindow().getGuiScaledWidth() - 20; // 10px padding on each side
+        int y = 20; // starting y coordinate
 
-        if(player != null){
-            String playerOldAndNewPosDebug = String.format(
+        List<FormattedCharSequence> debugLines = client.font.split(Component.literal(debugText), maxWidth);
+        for (FormattedCharSequence line : debugLines) {
+            client.font.drawInBatch(
+                    line,
+                    10,         // x coordinate
+                    y,          // y coordinate
+                    0xFFFFFF,   // text color (white)
+                    false,      // no drop shadow
+                    poseStack.last().pose(),
+                    event.getGuiGraphics().bufferSource(),
+                    Font.DisplayMode.NORMAL,
+                    0,          // no background color
+                    15728880   // packed light coordinates
+            );
+            y += client.font.lineHeight;
+        }
+
+        // If the player exists, wrap and draw the player's position debug text below the main text block.
+        if (player != null) {
+            String playerPosDebug = String.format(
                     "Player: old pos [x: %6.2f, y: %6.2f, z: %6.2f] | curr pos [x: %6.2f, y: %6.2f, z: %6.2f]",
                     player.xo, player.yo, player.zo,
                     player.getX(), player.getY(), player.getZ()
             );
+            List<FormattedCharSequence> playerLines = client.font.split(Component.literal(playerPosDebug), maxWidth);
+            for (FormattedCharSequence line : playerLines) {
+                client.font.drawInBatch(
+                        line,
+                        10,
+                        y,
+                        0xFFFFFF,
+                        false,
+                        poseStack.last().pose(),
+                        event.getGuiGraphics().bufferSource(),
+                        Font.DisplayMode.NORMAL,
+                        0,
+                        15728880
+                );
+                y += client.font.lineHeight;
+            }
 
-            // Draw the debug text at a fixed position (10, 20) with white color (0xFFFFFF)
-            client.font.drawInBatch(
-                    playerOldAndNewPosDebug,
-                    10,
-                    40,
-                    0xFFFFFF,                           // text color
-                    false,                              // dropShadow flag
-                    poseStack.last().pose(),            // Matrix4f from the PoseStack
-                    event.getGuiGraphics().bufferSource(), // MultiBufferSource
-                    Font.DisplayMode.NORMAL,            // Display mode
-                    0,                                  // background color (0 if none)
-                    15728880                           // packed light coordinates (0 if default)
-            );
+            // --- Upgrade: Also show the server player's position ---
+            IntegratedServer server = client.getSingleplayerServer();
+            if (server != null) {
+                // Retrieve the server-side player using the client's player UUID.
+                // Note: This requires that your mod environment exposes the server player via getPlayer.
+                var serverPlayer = server.getPlayerList().getPlayer(player.getUUID());
+                if (serverPlayer != null) {
+                    String serverPosDebug = String.format(
+                            "Server Player: pos [x: %6.2f, y: %6.2f, z: %6.2f]",
+                            serverPlayer.getX(), serverPlayer.getY(), serverPlayer.getZ()
+                    );
+                    List<FormattedCharSequence> serverLines = client.font.split(Component.literal(serverPosDebug), maxWidth);
+                    for (FormattedCharSequence line : serverLines) {
+                        client.font.drawInBatch(
+                                line,
+                                10,
+                                y,
+                                0xFFFFFF,
+                                false,
+                                poseStack.last().pose(),
+                                event.getGuiGraphics().bufferSource(),
+                                Font.DisplayMode.NORMAL,
+                                0,
+                                15728880
+                        );
+                        y += client.font.lineHeight;
+                    }
+                }
+            }
         }
-
 
         // Handle recording countdown overlay separately
         if (currMode == TLMode.REC_COUNTDOWN) {
@@ -169,7 +202,6 @@ public class SyncTimeline {
             if (countdownSeconds <= 0) {
                 // Countdown finished – switch to recording
                 setCurrMode(TLMode.REC, true);
-                debugText += " [Countdown finished -> Recording]";
             } else {
                 int centerX = client.getWindow().getGuiScaledWidth() / 2;
                 int centerY = client.getWindow().getGuiScaledHeight() / 2;
@@ -179,8 +211,8 @@ public class SyncTimeline {
                         "Recording in: " + displaySeconds,
                         centerX - 50,
                         centerY,
-                        0xFF0000,  // text color (red)
-                        false,     // dropShadow flag
+                        0xFF0000,  // red text color
+                        false,
                         poseStack.last().pose(),
                         event.getGuiGraphics().bufferSource(),
                         Font.DisplayMode.NORMAL,
@@ -190,6 +222,7 @@ public class SyncTimeline {
             }
         }
     }
+
 
     public static int framesToScrub = 0;
     public static void scrubFrames(int amount){ //Can be positive or negative
@@ -368,6 +401,7 @@ public class SyncTimeline {
         Gson gson = new GsonBuilder()
                 .registerTypeAdapter(Vec3.class, new SyncKeyframe.Vec3Adapter())
                 .registerTypeAdapter(Quaternionf.class, new SyncKeyframe.QuaternionfAdapter())
+                .registerTypeAdapter(MyInputEvent.class, new SyncKeyframe.MyInputEventAdapter())
                 .setPrettyPrinting()
                 .create();
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(recFile))) {
@@ -384,6 +418,7 @@ public class SyncTimeline {
         Gson gson = new GsonBuilder()
                 .registerTypeAdapter(Vec3.class, new SyncKeyframe.Vec3Adapter())
                 .registerTypeAdapter(Quaternionf.class, new SyncKeyframe.QuaternionfAdapter())
+                .registerTypeAdapter(MyInputEvent.class, new SyncKeyframe.MyInputEventAdapter())
                 .create();
         try (BufferedReader reader = new BufferedReader(new FileReader(recFile))) {
             StringBuilder sb = new StringBuilder();

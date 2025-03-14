@@ -2,11 +2,13 @@ package net.doodlechaos.playersync;
 
 import com.mojang.brigadier.CommandDispatcher;
 import net.doodlechaos.playersync.command.*;
+import net.doodlechaos.playersync.input.InputsManager;
 import net.doodlechaos.playersync.sync.AudioSync;
 import net.doodlechaos.playersync.sync.SyncKeyframe;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.event.ClientChatEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -38,7 +40,7 @@ public class PlayerSync
 
     public static boolean overrideTickDelta;
     public static float myTickDelta = 0;
-    public static boolean OpenScreen = false;
+    public static boolean OpenKeyCommandsEditScreen = false;
 
     public PlayerSync(IEventBus modEventBus, ModContainer modContainer)
     {
@@ -84,11 +86,11 @@ public class PlayerSync
         event.getEntity().sendSystemMessage(Component.literal("loaded audio: " + audioPath));
     }
 
-                                  @SubscribeEvent
+    @SubscribeEvent
     public void onClientTick(ClientTickEvent.Post event){
         Minecraft mc = Minecraft.getInstance();
 
-        if(mc.screen == null && OpenScreen)
+        if(mc.screen == null && OpenKeyCommandsEditScreen)
         {
             SyncKeyframe key = SyncTimeline.getCurrKeyframe();
             if(key != null)

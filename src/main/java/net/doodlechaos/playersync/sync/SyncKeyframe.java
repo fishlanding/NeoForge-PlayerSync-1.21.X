@@ -7,7 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializer;
-import net.doodlechaos.playersync.input.containers.MyInputEvent;
+import net.doodlechaos.playersync.input.containers.*;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
@@ -112,4 +112,39 @@ public class SyncKeyframe {
             return new Quaternionf(x, y, z, w);
         }
     }
+
+    // Custom Gson adapter for MyInputEvent.
+    public static class MyInputEventAdapter implements JsonSerializer<MyInputEvent>, JsonDeserializer<MyInputEvent> {
+        @Override
+        public JsonElement serialize(MyInputEvent src, Type typeOfSrc, com.google.gson.JsonSerializationContext context) {
+            // Serialize the concrete subclass and then add a "type" field.
+            JsonElement jsonElem = context.serialize(src, src.getClass());
+            JsonObject jsonObj = jsonElem.getAsJsonObject();
+            jsonObj.addProperty("type", src.getClass().getSimpleName());
+            return jsonObj;
+        }
+
+        @Override
+        public MyInputEvent deserialize(JsonElement json, Type typeOfT, com.google.gson.JsonDeserializationContext context) throws com.google.gson.JsonParseException {
+            JsonObject jsonObj = json.getAsJsonObject();
+            if (!jsonObj.has("type")) {
+                throw new JsonParseException("Missing type field in MyInputEvent JSON");
+            }
+            String type = jsonObj.get("type").getAsString();
+            switch (type) {
+                case "KeyboardEvent":
+                    return context.deserialize(json, KeyboardEvent.class);
+                case "MouseButtonEvent":
+                    return context.deserialize(json, MouseButtonEvent.class);
+                case "MousePosEvent":
+                    return context.deserialize(json, MousePosEvent.class);
+                case "MouseScrollEvent":
+                    return context.deserialize(json, MouseScrollEvent.class);
+                default:
+                    throw new JsonParseException("Unknown MyInputEvent type: " + type);
+            }
+        }
+    }
+
+
 }
