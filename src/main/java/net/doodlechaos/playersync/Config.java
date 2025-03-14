@@ -11,53 +11,46 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
+import org.apache.commons.lang3.tuple.Pair;
 
 // An example config class. This is not required, but it's a good idea to have one to keep your config organized.
 // Demonstrates how to use Neo's config APIs
-@EventBusSubscriber(modid = PlayerSync.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public class Config
 {
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+    // These fields hold the configuration values and their specification.
+    public static final Config CONFIG;
+    public static final ModConfigSpec CONFIG_SPEC;
 
-    private static final ModConfigSpec.BooleanValue LOG_DIRT_BLOCK = BUILDER
-            .comment("Whether to log the dirt block on common setup")
-            .define("logDirtBlock", true);
+    // Example config value: a welcome message
+    public final ModConfigSpec.ConfigValue<String> inputAudioPathOgg;
+    public final ModConfigSpec.ConfigValue<String> pathToFFMPEG;
+    public final ModConfigSpec.ConfigValue<String> outputVideoPath;
 
-    private static final ModConfigSpec.IntValue MAGIC_NUMBER = BUILDER
-            .comment("A magic number")
-            .defineInRange("magicNumber", 42, 0, Integer.MAX_VALUE);
 
-    public static final ModConfigSpec.ConfigValue<String> MAGIC_NUMBER_INTRODUCTION = BUILDER
-            .comment("What you want the introduction message to be for the magic number")
-            .define("magicNumberIntroduction", "The magic number is... ");
+    // The constructor takes in a builder to define the config entries.
+    private Config(ModConfigSpec.Builder builder) {
+        // Define a property with a comment and translation key.
+        inputAudioPathOgg = builder
+                .comment("Path for the input audio file")
+                .translation("playersync.inputAudioOgg")  // Custom translation key without category prefix.
+                .define("inputAudioOgg", "C:\\Users\\marky\\Downloads\\mainThemeRemix.ogg");
 
-    // a list of strings that are treated as resource locations for items
-    private static final ModConfigSpec.ConfigValue<List<? extends String>> ITEM_STRINGS = BUILDER
-            .comment("A list of items to log on common setup.")
-            .defineListAllowEmpty("items", List.of("minecraft:iron_ingot"), Config::validateItemName);
-
-    static final ModConfigSpec SPEC = BUILDER.build();
-
-    public static boolean logDirtBlock;
-    public static int magicNumber;
-    public static String magicNumberIntroduction;
-    public static Set<Item> items;
-
-    private static boolean validateItemName(final Object obj)
-    {
-        return obj instanceof String itemName && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(itemName));
+        pathToFFMPEG = builder
+                .comment("Path to ffmpeg.exe")
+                .translation("playersync.pathToFFMPEG")
+                .define("pathToFFMPEG", "C:\\FFmpeg\\bin\\ffmpeg.exe");
+        outputVideoPath = builder
+                .comment("Output Video Path")
+                .translation("playersync.outputVideoPath")
+                .define("outputVideoPath", "C:\\Users\\marky\\Downloads\\testRenderPlayerSync.mp4");
     }
 
-    @SubscribeEvent
-    static void onLoad(final ModConfigEvent event)
-    {
-        logDirtBlock = LOG_DIRT_BLOCK.get();
-        magicNumber = MAGIC_NUMBER.get();
-        magicNumberIntroduction = MAGIC_NUMBER_INTRODUCTION.get();
-
-        // convert the list of strings into a set of items
-        items = ITEM_STRINGS.get().stream()
-                .map(itemName -> BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemName)))
-                .collect(Collectors.toSet());
+    // Use a static block to build both the config instance and its spec.
+    static {
+        // The builder's configure method returns a pair containing the config instance and spec.
+        // Replace Pair.getLeft()/getRight() with the appropriate methods if your Pair implementation differs.
+        Pair<Config, ModConfigSpec> pair = new ModConfigSpec.Builder().configure(Config::new);
+        CONFIG = pair.getLeft();
+        CONFIG_SPEC = pair.getRight();
     }
 }

@@ -26,10 +26,6 @@ public class VideoRenderer {
     private static int videoHeight = 0;
     private static final int FRAME_RATE = 60; // Change as needed
 
-    // Configurable settings (defaults provided)
-    private static String ffmpegPath = "C:\\FFmpeg\\bin\\ffmpeg.exe"; // default assumes ffmpeg is in system PATH
-    private static String outputFile = "C:\\Users\\marky\\Downloads\\testRenderPlayerSync.mp4";
-
     // Flag to indicate if recording is active
     private static boolean rendering = false;
     public static boolean isRendering(){
@@ -37,32 +33,9 @@ public class VideoRenderer {
     }
 
     /**
-     * Loads the configuration file (if available) from config/playersync.properties.
-     * Expected properties:
-     *   ffmpegPath - the path to the ffmpeg executable.
-     *   outputFile - the desired output filename.
-     */
-    private static void loadConfig() {
-        File configFile = new File("config/playersync.properties");
-        if (configFile.exists()) {
-            Properties props = new Properties();
-            try (FileInputStream fis = new FileInputStream(configFile)) {
-                props.load(fis);
-                ffmpegPath = props.getProperty("ffmpegPath", ffmpegPath);
-                outputFile = props.getProperty("outputFile", outputFile);
-                LOGGER.info("Loaded ffmpegPath: {} and outputFile: {}", ffmpegPath, outputFile);
-            } catch (IOException e) {
-                LOGGER.error("Error loading config file", e);
-            }
-        } else {
-            LOGGER.info("Config file not found. Using default ffmpegPath and outputFile.");
-        }
-    }
-
-    /**
-     * Starts an ffmpeg process to record the game video.
+     * Starts an ffmpeg process to record the game video and add the music.
      * This method determines the current window size and starts an ffmpeg process
-     * that expects raw RGBA frames via its standard input.
+     * that expects raw RGBA frames via its standard input and also uses the specified audio file.
      */
     public static void StartRendering() {
         if (rendering) {
@@ -74,24 +47,24 @@ public class VideoRenderer {
         SyncTimeline.setCurrMode(SyncTimeline.TLMode.PLAYBACK, true);
         SyncTimeline.setPlaybackPaused(true);
 
-        loadConfig(); // load configuration from file
-
-        //long windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
-        //GLFW.glfwSetWindowSize(windowHandle, 1920, 1080);  //If I set the window size here, will it be ready in time?
-
         Minecraft client = Minecraft.getInstance();
-        videoWidth = client.getWindow().getScreenWidth(); //.getFramebufferWidth();
-        videoHeight = client.getWindow().getScreenHeight(); //.getFramebufferHeight();
+        videoWidth = client.getWindow().getScreenWidth();
+        videoHeight = client.getWindow().getScreenHeight();
         LOGGER.info("Recording started at resolution {}x{}", videoWidth, videoHeight);
 
         // Build the ffmpeg command.
-        // This command tells ffmpeg to:
+        // The command tells ffmpeg to:
         //   - overwrite output (-y)
-        //   - expect rawvideo in RGBA format of the given size at FRAME_RATE fps from stdin
-        //   - encode using libx264 with ultrafast preset
+        //   - read raw RGBA video frames from stdin with the given size and frame rate
+        //   - use the provided audio file (inputAudioPathOgg) as a second input
+        //   - encode the video using libx264 with ultrafast preset and the audio using AAC
+        //   - flip the video vertically and scale to even dimensions
+        //   - stop encoding when the shortest input (video or audio) ends (-shortest)
         List<String> command = new ArrayList<>();
-        command.add(ffmpegPath);
+        command.add(Config.CONFIG.pathToFFMPEG.get());
         command.add("-y");
+
+        // Video input configuration
         command.add("-f");
         command.add("rawvideo");
         command.add("-pixel_format");
@@ -101,7 +74,13 @@ public class VideoRenderer {
         command.add("-framerate");
         command.add(String.valueOf(FRAME_RATE));
         command.add("-i");
-        command.add("-");
+        command.add("-");  // Video input from stdin
+
+        // Audio input configuration
+        command.add("-i");
+        command.add(Config.CONFIG.inputAudioPathOgg.get());
+
+        // Video encoding options
         command.add("-c:v");
         command.add("libx264");
         command.add("-preset");
@@ -109,18 +88,28 @@ public class VideoRenderer {
         command.add("-pix_fmt");
         command.add("yuv420p");
 
-        //This filter will scale the width and height to the nearest even number. It also flips the video vertically
+        // Audio encoding options (using AAC)
+        command.add("-c:a");
+        command.add("aac");
+        command.add("-b:a");
+        command.add("192k");
+
+        // Filters: flip vertically and scale to nearest even numbers
         command.add("-vf");
         command.add("vflip,scale=trunc(iw/2)*2:trunc(ih/2)*2");
 
+        // Ensure the output stops at the shortest input's end (video in this case)
+        command.add("-shortest");
 
-        command.add(outputFile);
+        // Output file path
+        command.add(Config.CONFIG.outputVideoPath.get());
 
         ProcessBuilder pb = new ProcessBuilder(command);
         try {
             ffmpegProcess = pb.start();
             ffmpegInput = ffmpegProcess.getOutputStream();
 
+            // Read and log any errors from ffmpeg
             new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(ffmpegProcess.getErrorStream()))) {
                     String line;
@@ -150,7 +139,6 @@ public class VideoRenderer {
         ByteBuffer buffer = BufferUtils.createByteBuffer(videoWidth * videoHeight * 4);
 
         // Read pixels from the framebuffer.
-        // Note: glReadPixels reads from the lower-left corner. Depending on your setup,
         GL11.glReadBuffer(GL11.GL_FRONT);
         GL11.glReadPixels(0, 0, videoWidth, videoHeight, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
 

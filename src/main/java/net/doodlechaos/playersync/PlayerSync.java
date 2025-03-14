@@ -55,7 +55,7 @@ public class PlayerSync
         modEventBus.addListener(this::addCreative);
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.COMMON, Config.CONFIG_SPEC);
     }
 
     // Register commands using RegisterCommandsEvent
@@ -81,9 +81,10 @@ public class PlayerSync
 
     @SubscribeEvent
     public void onPlayerJoinWorld(PlayerEvent.PlayerLoggedInEvent event){
-        String audioPath = "C:\\Users\\marky\\Downloads\\mainThemeRemix.ogg";
-        AudioSync.loadAudio(audioPath);
-        event.getEntity().sendSystemMessage(Component.literal("loaded audio: " + audioPath));
+        //String audioPath = "C:\\Users\\marky\\Downloads\\mainThemeRemix.ogg";
+        String inputAudioPath = Config.CONFIG.inputAudioPathOgg.get();
+        AudioSync.loadAudio(inputAudioPath);
+        event.getEntity().sendSystemMessage(Component.literal("loaded audio: " + inputAudioPath));
     }
 
     @SubscribeEvent
