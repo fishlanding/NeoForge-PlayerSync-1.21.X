@@ -9,7 +9,9 @@ import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -19,6 +21,7 @@ import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
+
 
     @Redirect(
             method = "runTick(Z)V",
@@ -34,6 +37,8 @@ public class MinecraftMixin {
 
         if(SyncTimeline.isPlaybackDetached())
             return timer.advanceTime(timeMillis, renderLevel);
+
+        timer.advanceTime(timeMillis, renderLevel); //Still advance the time, just don't use the tick value it returns. I must do this so when I go back to recording there isn't a sudden LURCH back to real time
 
         SyncKeyframe keyframe = SyncTimeline.getCurrKeyframe();
         SyncTimeline.setPlayerFromKeyframe(keyframe);
@@ -58,7 +63,32 @@ public class MinecraftMixin {
                 CountDownLatch latch = new CountDownLatch(1);
                 server.tickRateManager().stepGameIfPaused(1);
                 server.execute(() -> {
+                    // Retrieve the server-side player corresponding to the client player.
+/*                    if(mc.player != null){
+                        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(mc.player.getUUID());
+                        if (serverPlayer != null) {
+                            // Force-sync the position and orientation:
+                            // This method typically teleports the player, updating both position and rotation.
+                            SyncTimeline.allowEntityMixinFlag = true;
+                            serverPlayer.moveTo(
+                                    mc.player.getX(),
+                                    mc.player.getY(),
+                                    mc.player.getZ(),
+                                    mc.player.getYRot(),  // yaw
+                                    mc.player.getXRot()   // pitch
+                            );
+                            // Copy velocity (motion) from client to server.
+
+                            serverPlayer.setDeltaMovement(mc.player.getDeltaMovement());
+                            SyncTimeline.allowEntityMixinFlag = false;
+                            SLOGGER.info("Done setting server player");
+                            // If there are additional fields (like swing progress, health, etc.) that you need synchronized,
+                            // you would set those here as well.
+                        }
+                    }*/
+                    //SyncTimeline.allowTickServerFlag = true;
                     server.tickServer(()->false);
+                    //SyncTimeline.allowTickServerFlag = false;
                     latch.countDown();
                 });
                 try {

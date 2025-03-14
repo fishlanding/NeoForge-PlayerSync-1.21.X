@@ -3,6 +3,7 @@ package net.doodlechaos.playersync.mixin;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -39,6 +40,25 @@ public class EntityMixin {
 
             ci.cancel();
         }
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Inject(method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"), cancellable = true)
+    private void onSetDeltaMovement(Vec3 deltaMovement, CallbackInfo ci) {
+        boolean flag1 = !SyncTimeline.allowEntityMixinFlag;
+        boolean flag2 = SyncTimeline.getMode() == TLMode.PLAYBACK;
+        boolean flag3 = !SyncTimeline.isPlaybackDetached();
+        boolean flag4 = ((Entity)(Object)this).getType().equals(EntityType.PLAYER);
+        if (flag1
+                && flag2
+                && flag3
+                && flag4) //Triggers on client and server
+        {
+            ci.cancel();
+            return;
+        }
+        if(flag4)
+            SLOGGER.info("Setting player delta movement to: " + deltaMovement);
     }
 
 }

@@ -66,6 +66,7 @@ public class SyncTimeline {
 
     public static Vector3f keyframeCamEulerDegrees = new Vector3f();
     public static boolean allowEntityMixinFlag = false;
+    public static boolean allowTickServerFlag = false;
 
     @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiEvent.Post event) {
@@ -73,17 +74,16 @@ public class SyncTimeline {
         PoseStack poseStack = event.getGuiGraphics().pose();
         LocalPlayer player = client.player;
 
-        // Get the main camera and its Euler angles (in radians)
+        // --- Camera / Euler angles ---
         Camera cam = client.gameRenderer.getMainCamera();
         Vector3f euler = new Vector3f();
         cam.rotation().getEulerAnglesYXZ(euler);
 
-        // Convert the Euler angles from radians to degrees
         float xDeg = euler.x * (180.0f / (float)Math.PI);
         float yDeg = euler.y * (180.0f / (float)Math.PI);
         float zDeg = euler.z * (180.0f / (float)Math.PI);
 
-        // Define a mode string for a consistent layout (adjust as needed)
+        // --- Current TLMode as a string ---
         String modeStr;
         switch (currMode) {
             case REC:
@@ -100,100 +100,127 @@ public class SyncTimeline {
                 break;
         }
 
-        // Build the base debug text with fixed-width fields
-        String debugText = String.format(
-                "Mode: %-9s | deltaTick: %6.2f | Euler: [x: %6.2f°, y: %6.2f°, z: %6.2f°]",
-                modeStr,
-                client.getTimer().getGameTimeDeltaPartialTick(true),
-                xDeg, yDeg, zDeg
-        );
+        // --- Build up the debug info using a StringBuilder ---
+        StringBuilder debugBuilder = new StringBuilder();
 
-        // Append additional information based on the mode
+        debugBuilder
+                .append(String.format("Mode: %s\n", modeStr))
+                .append(String.format("deltaTick: %.2f\n",
+                        client.getTimer().getGameTimeDeltaPartialTick(true)))
+                .append(String.format("Euler (degrees): X=%.2f, Y=%.2f, Z=%.2f\n", xDeg, yDeg, zDeg));
+
+        // Additional lines for certain modes
         if (currMode == TLMode.REC) {
-            debugText += String.format(" | recFrame: %6d", getRecFrame());
+            debugBuilder.append(String.format("recFrame: %d\n", getRecFrame()));
         }
         if (currMode == TLMode.PLAYBACK) {
-            debugText += String.format(" | detached: %-6s | playbackPaused: %-6s | frame: %6d",
-                    playbackDetached, playbackPaused, frame);
+            debugBuilder.append(String.format(
+                    "detached: %s | playbackPaused: %s | frame: %d\n",
+                    playbackDetached, playbackPaused, frame
+            ));
         }
 
-        // Calculate maximum width for wrapping (with padding)
-        int maxWidth = client.getWindow().getGuiScaledWidth() - 20; // 10px padding on each side
-        int y = 20; // starting y coordinate
-
-        List<FormattedCharSequence> debugLines = client.font.split(Component.literal(debugText), maxWidth);
-        for (FormattedCharSequence line : debugLines) {
-            client.font.drawInBatch(
-                    line,
-                    10,         // x coordinate
-                    y,          // y coordinate
-                    0xFFFFFF,   // text color (white)
-                    false,      // no drop shadow
-                    poseStack.last().pose(),
-                    event.getGuiGraphics().bufferSource(),
-                    Font.DisplayMode.NORMAL,
-                    0,          // no background color
-                    15728880   // packed light coordinates
-            );
-            y += client.font.lineHeight;
-        }
-
-        // If the player exists, wrap and draw the player's position debug text below the main text block.
+        // --- If the player exists, show client position/movement and rotation ---
         if (player != null) {
-            String playerPosDebug = String.format(
-                    "Player: old pos [x: %6.2f, y: %6.2f, z: %6.2f] | curr pos [x: %6.2f, y: %6.2f, z: %6.2f]",
-                    player.xo, player.yo, player.zo,
-                    player.getX(), player.getY(), player.getZ()
+            // Current and previous position
+            debugBuilder.append(
+                    String.format(
+                            "Client Player Pos: Current [%.2f, %.2f, %.2f], Prev [%.2f, %.2f, %.2f]\n",
+                            player.getX(), player.getY(), player.getZ(),
+                            player.xo,     player.yo,     player.zo
+                    )
             );
-            List<FormattedCharSequence> playerLines = client.font.split(Component.literal(playerPosDebug), maxWidth);
-            for (FormattedCharSequence line : playerLines) {
-                client.font.drawInBatch(
-                        line,
-                        10,
-                        y,
-                        0xFFFFFF,
-                        false,
-                        poseStack.last().pose(),
-                        event.getGuiGraphics().bufferSource(),
-                        Font.DisplayMode.NORMAL,
-                        0,
-                        15728880
-                );
-                y += client.font.lineHeight;
-            }
+            // Current and previous rotation: getXRot() = pitch, getYRot() = yaw
+            debugBuilder.append(
+                    String.format(
+                            "Client Player Rot: Current [pitch=%.2f, yaw=%.2f], Prev [pitch=%.2f, yaw=%.2f]\n",
+                            player.getXRot(), player.getYRot(),
+                            player.xRotO,     player.yRotO
+                    )
+            );
 
-            // --- Upgrade: Also show the server player's position ---
+            // Delta movement if needed
+            debugBuilder.append(String.format(
+                    "Client Movement: X=%.2f, Y=%.2f, Z=%.2f\n",
+                    player.getDeltaMovement().x,
+                    player.getDeltaMovement().y,
+                    player.getDeltaMovement().z
+            ));
+
+            // --- Also show the server player's position/rotation ---
             IntegratedServer server = client.getSingleplayerServer();
             if (server != null) {
-                // Retrieve the server-side player using the client's player UUID.
-                // Note: This requires that your mod environment exposes the server player via getPlayer.
                 var serverPlayer = server.getPlayerList().getPlayer(player.getUUID());
                 if (serverPlayer != null) {
-                    String serverPosDebug = String.format(
-                            "Server Player: pos [x: %6.2f, y: %6.2f, z: %6.2f]",
-                            serverPlayer.getX(), serverPlayer.getY(), serverPlayer.getZ()
+                    debugBuilder.append(
+                            String.format(
+                                    "Server Player Pos: Current [%.2f, %.2f, %.2f]",
+                                    serverPlayer.getX(), serverPlayer.getY(), serverPlayer.getZ()
+                            )
                     );
-                    List<FormattedCharSequence> serverLines = client.font.split(Component.literal(serverPosDebug), maxWidth);
-                    for (FormattedCharSequence line : serverLines) {
-                        client.font.drawInBatch(
-                                line,
-                                10,
-                                y,
-                                0xFFFFFF,
-                                false,
-                                poseStack.last().pose(),
-                                event.getGuiGraphics().bufferSource(),
-                                Font.DisplayMode.NORMAL,
-                                0,
-                                15728880
-                        );
-                        y += client.font.lineHeight;
-                    }
+
+                    // If you want server "previous" position too and it's accessible:
+                    // serverPlayer.xo, serverPlayer.yo, serverPlayer.zo
+                    debugBuilder.append(
+                            String.format(
+                                    ", Prev [%.2f, %.2f, %.2f]\n",
+                                    serverPlayer.xo, serverPlayer.yo, serverPlayer.zo
+                            )
+                    );
+
+                    debugBuilder.append(
+                            String.format(
+                                    "Server Player Rot: Current [pitch=%.2f, yaw=%.2f]",
+                                    serverPlayer.getXRot(), serverPlayer.getYRot()
+                            )
+                    );
+                    // If you have old rotation (xRotO, yRotO) on the server side:
+                    debugBuilder.append(
+                            String.format(
+                                    ", Prev [pitch=%.2f, yaw=%.2f]\n",
+                                    serverPlayer.xRotO, serverPlayer.yRotO
+                            )
+                    );
+
+                    // Add server deltas if desired
+                    debugBuilder.append(String.format(
+                            "Server Movement: X=%.2f, Y=%.2f, Z=%.2f\n",
+                            serverPlayer.getDeltaMovement().x,
+                            serverPlayer.getDeltaMovement().y,
+                            serverPlayer.getDeltaMovement().z
+                    ));
                 }
             }
         }
 
-        // Handle recording countdown overlay separately
+        // --- Turn that into a single string for drawing ---
+        String finalDebugText = debugBuilder.toString();
+
+        // --- Calculate max width for wrapping, then split and draw once ---
+        int maxWidth = client.getWindow().getGuiScaledWidth() - 20; // 10px padding on each side
+        int x = 10;
+        int y = 20; // top padding
+
+        List<FormattedCharSequence> debugLines =
+                client.font.split(Component.literal(finalDebugText), maxWidth);
+
+        for (FormattedCharSequence line : debugLines) {
+            client.font.drawInBatch(
+                    line,
+                    x,
+                    y,
+                    0xFFFFFF,   // text color
+                    false,      // no drop shadow
+                    poseStack.last().pose(),
+                    event.getGuiGraphics().bufferSource(),
+                    Font.DisplayMode.NORMAL,
+                    0,
+                    15728880
+            );
+            y += client.font.lineHeight;
+        }
+
+        // --- Handle the separate countdown text in the center of the screen ---
         if (currMode == TLMode.REC_COUNTDOWN) {
             int framesElapsed = getFrame() - countdownStartFrame;
             int framesLeft = countdownDurationFrames - framesElapsed;
@@ -211,7 +238,7 @@ public class SyncTimeline {
                         "Recording in: " + displaySeconds,
                         centerX - 50,
                         centerY,
-                        0xFF0000,  // red text color
+                        0xFF0000,
                         false,
                         poseStack.last().pose(),
                         event.getGuiGraphics().bufferSource(),
@@ -222,6 +249,8 @@ public class SyncTimeline {
             }
         }
     }
+
+
 
 
     public static int framesToScrub = 0;
@@ -369,8 +398,6 @@ public class SyncTimeline {
         allowEntityMixinFlag = true;
         player.setOldPosAndRot(); //<< this prevents the deltaTick from affecting the player position (we're recording the position at 60fps, so no need for interpolation
         player.setPos(keyframe.playerPos);
-        allowEntityMixinFlag = false;
-
 
         player.setYRot(keyframe.playerYaw);
         player.setXRot(keyframe.playerPitch);
@@ -383,6 +410,7 @@ public class SyncTimeline {
         ((CameraAccessor)cam).invokeSetRotation(keyframeCamEulerDegrees.y, keyframeCamEulerDegrees.x, keyframeCamEulerDegrees.z);
         ((CameraAccessor)cam).invokeSetPosition(keyframe.camPos);
 
+        allowEntityMixinFlag = false;
         //SLOGGER.info("done setting player from keyframe");
     }
 
