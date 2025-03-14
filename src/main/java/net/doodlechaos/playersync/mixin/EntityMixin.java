@@ -42,7 +42,7 @@ public class EntityMixin {
         }
     }
 
-    @SuppressWarnings("ConstantConditions")
+/*    @SuppressWarnings("ConstantConditions")
     @Inject(method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"), cancellable = true)
     private void onSetDeltaMovement(Vec3 deltaMovement, CallbackInfo ci) {
         boolean flag1 = !SyncTimeline.allowEntityMixinFlag;
@@ -59,6 +59,6 @@ public class EntityMixin {
         }
         if(flag4)
             SLOGGER.info("Setting player delta movement to: " + deltaMovement);
-    }
+    }*/
 
 }
