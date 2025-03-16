@@ -231,32 +231,32 @@ public class SyncTimeline {
             int framesLeft = countdownDurationFramesTotal - framesElapsed;
             float countdownSeconds = framesLeft / 60.0f;
 
-            if (countdownSeconds <= 0) {
-                // Countdown finished – switch to recording
-                setCurrMode(TLMode.REC, true);
-            } else {
-                int centerX = client.getWindow().getGuiScaledWidth() / 2;
-                int centerY = client.getWindow().getGuiScaledHeight() / 2;
-                int displaySeconds = (int) Math.ceil(countdownSeconds);
-
-                client.font.drawInBatch(
-                        "Recording in: " + displaySeconds,
-                        centerX - 50,
-                        centerY,
-                        0xFF0000,
-                        false,
-                        poseStack.last().pose(),
-                        event.getGuiGraphics().bufferSource(),
-                        Font.DisplayMode.NORMAL,
-                        0,
-                        15728880
-                );
+            // Remove the old transition here.
+            // Just clamp the countdownSeconds to 0 if it goes negative:
+            if (countdownSeconds < 0) {
+                countdownSeconds = 0;
             }
+
+            // Then continue drawing your "Recording in: X" text as before:
+            int centerX = client.getWindow().getGuiScaledWidth() / 2;
+            int centerY = client.getWindow().getGuiScaledHeight() / 2;
+            int displaySeconds = (int) Math.ceil(countdownSeconds);
+
+            client.font.drawInBatch(
+                    "Recording in: " + displaySeconds,
+                    centerX - 50,
+                    centerY,
+                    0xFF0000,
+                    false,
+                    poseStack.last().pose(),
+                    event.getGuiGraphics().bufferSource(),
+                    Font.DisplayMode.NORMAL,
+                    0,
+                    15728880
+            );
         }
+
     }
-
-
-
 
     public static int framesToScrub = 0;
     public static void scrubFrames(int amount){ //Can be positive or negative
@@ -267,10 +267,14 @@ public class SyncTimeline {
         if(frame == value)
             return;
 
-        if(value < 0) //Clamp within valid range
+        /////CLAMPING/////
+        if(value < 0)
             value = 0;
-        if(value >= recordedKeyframes.size())
+        if(getMode() == TLMode.REC_COUNTDOWN && value >= recordedKeyframes.size()) //Allow the frame to be set one beyond if we're doing the countdown so we can detect for the transition to REC
             value = recordedKeyframes.size();
+        if(getMode() == TLMode.PLAYBACK && value >= recordedKeyframes.size() - 1) //Use playback specifically here. Clamp to exact frames if in playback
+            value = recordedKeyframes.size() - 1;
+        /////////////////
 
         frame = value;
         SLOGGER.info("Set frame to: " + value);
@@ -297,14 +301,15 @@ public class SyncTimeline {
             if(totalFrames == 0) {
                 SLOGGER.info("No frames recorded, starting recording immediately.");
                 setCurrMode(TLMode.REC, true);
-                return;
+            } else{
+                countdownDurationFramesTotal = Math.min(countdownDurationFramesTotal, totalFrames);
+                int targetStart = totalFrames - countdownDurationFramesTotal;
+                setFrame(targetStart);
+                countdownStartFrame = targetStart;
+                SLOGGER.info("Starting recording countdown with " + countdownDurationFramesTotal +
+                        " frames (" + (countdownDurationFramesTotal / 60.0f) + " seconds) countdown!");
             }
-            countdownDurationFramesTotal = Math.min(countdownDurationFramesTotal, totalFrames);
-            int targetStart = totalFrames - countdownDurationFramesTotal;
-            setFrame(targetStart);
-            countdownStartFrame = targetStart;
-            SLOGGER.info("Starting recording countdown with " + countdownDurationFramesTotal +
-                    " frames (" + (countdownDurationFramesTotal / 60.0f) + " seconds) countdown!");
+
         }
 
         if(mode == TLMode.REC) {
@@ -407,7 +412,7 @@ public class SyncTimeline {
             LOGGER.error("playheadIndex: " + frame + " tickDelta: " + tickDelta);
         }
 
-        long frameNumber = getFrame();
+        long frameNumber = recordedKeyframes.size(); //getFrame();
 
         Camera cam = client.gameRenderer.getMainCamera();
         Vec3 camPos = cam.getPosition();
@@ -432,6 +437,7 @@ public class SyncTimeline {
         recordedKeyframes.add(keyframe);
         SLOGGER.info("Recorded keyframe");
 
+        setFrame((int)frameNumber);
         InputsManager.clearRecordedInputsBuffer();
     }
 
