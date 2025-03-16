@@ -22,6 +22,7 @@ public class VideoRenderer {
     private static OutputStream ffmpegInput = null;
 
     // Video parameters
+    public static int preFrameWaitCount = 0;
     private static int videoWidth = 0;
     private static int videoHeight = 0;
     private static final int FRAME_RATE = 60; // Change as needed

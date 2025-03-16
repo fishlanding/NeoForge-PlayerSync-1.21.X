@@ -87,6 +87,13 @@ public class RecordCommands {
                         })
 
                 )
+                .then(literal("undoLastRecSession")
+                        .executes(ctx -> {
+                            String resp = SyncTimeline.undoLastRecSession();
+                            ctx.getSource().sendSystemMessage(Component.literal(resp));
+                            return 1;
+                        })
+                )
         );
     }
 }

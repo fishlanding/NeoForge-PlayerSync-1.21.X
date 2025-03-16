@@ -21,7 +21,7 @@ public class EntityMixin {
     @Inject(method = "setOldPosAndRot", at = @At("HEAD"), cancellable = true)
     private void onSetOldPosAndRot(CallbackInfo ci) {
         if (!SyncTimeline.allowEntityMixinFlag
-                && SyncTimeline.getMode() == TLMode.PLAYBACK
+                && SyncTimeline.isSomeFormOfPlayback()
                 && !SyncTimeline.isPlaybackDetached()
                 && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)
                 && ((Entity)(Object)this).level().isClientSide()) {
@@ -33,7 +33,7 @@ public class EntityMixin {
     @Inject(method = "setPosRaw(DDD)V", at = @At("HEAD"), cancellable = true)
     private void onSetPosRaw(double x, double y, double z, CallbackInfo ci) {
         if (!SyncTimeline.allowEntityMixinFlag
-                && SyncTimeline.getMode() == TLMode.PLAYBACK
+                && SyncTimeline.isSomeFormOfPlayback()
                 && !SyncTimeline.isPlaybackDetached()
                 && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)
                 && ((Entity)(Object)this).level().isClientSide()) {
@@ -41,24 +41,5 @@ public class EntityMixin {
             ci.cancel();
         }
     }
-
-/*    @SuppressWarnings("ConstantConditions")
-    @Inject(method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"), cancellable = true)
-    private void onSetDeltaMovement(Vec3 deltaMovement, CallbackInfo ci) {
-        boolean flag1 = !SyncTimeline.allowEntityMixinFlag;
-        boolean flag2 = SyncTimeline.getMode() == TLMode.PLAYBACK;
-        boolean flag3 = !SyncTimeline.isPlaybackDetached();
-        boolean flag4 = ((Entity)(Object)this).getType().equals(EntityType.PLAYER);
-        if (flag1
-                && flag2
-                && flag3
-                && flag4) //Triggers on client and server
-        {
-            ci.cancel();
-            return;
-        }
-        if(flag4)
-            SLOGGER.info("Setting player delta movement to: " + deltaMovement);
-    }*/
 
 }

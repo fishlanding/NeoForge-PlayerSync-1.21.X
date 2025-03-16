@@ -12,7 +12,7 @@ public class CameraMixin {
 
     @ModifyVariable(method = "setRotation(FFF)V", at = @At("HEAD"), ordinal = 0, argsOnly = true)
     private float modifyYaw(float yRot) {
-        if (SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK && !SyncTimeline.isPlaybackDetached()) {
+        if (SyncTimeline.isSomeFormOfPlayback() && !SyncTimeline.isPlaybackDetached()) {
             return SyncTimeline.keyframeCamEulerDegrees.y;
         }
         return yRot;
@@ -20,7 +20,7 @@ public class CameraMixin {
 
     @ModifyVariable(method = "setRotation(FFF)V", at = @At("HEAD"), ordinal = 1, argsOnly = true)
     private float modifyPitch(float xRot) {
-        if (SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK && !SyncTimeline.isPlaybackDetached()) {
+        if (SyncTimeline.isSomeFormOfPlayback() && !SyncTimeline.isPlaybackDetached()) {
             return SyncTimeline.keyframeCamEulerDegrees.x;
         }
         return xRot;
@@ -28,7 +28,7 @@ public class CameraMixin {
 
     @ModifyVariable(method = "setRotation(FFF)V", at = @At("HEAD"), ordinal = 2, argsOnly = true)
     private float modifyRoll(float roll) {
-        if (SyncTimeline.getMode() == SyncTimeline.TLMode.PLAYBACK && !SyncTimeline.isPlaybackDetached()) {
+        if (SyncTimeline.isSomeFormOfPlayback() && !SyncTimeline.isPlaybackDetached()) {
             return SyncTimeline.keyframeCamEulerDegrees.z;
         }
         return roll;

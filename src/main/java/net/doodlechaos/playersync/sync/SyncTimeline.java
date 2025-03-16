@@ -45,6 +45,7 @@ public class SyncTimeline {
     //private static final int COUNTDOWN_DURATION_FRAMES = 3 * 60; // 3 seconds at 60 fps
     public static int countdownDurationFramesTotal = 3 * 60;
     private static int countdownStartFrame = 0;
+    private static int lastRecSessionStartIndex = -1;
 
     private static final List<SyncKeyframe> recordedKeyframes = new ArrayList<>();
 
@@ -53,6 +54,8 @@ public class SyncTimeline {
     public static boolean isPlaybackDetached() {return playbackDetached;}
     public static boolean isTickFrame() { return (getFrame() % 3) == 0;}
     public static boolean hasFrameChanged(){ return (getFrame() != getPrevFrame());}
+    public static boolean isSomeFormOfPlayback(){return currMode == TLMode.PLAYBACK || currMode == TLMode.REC_COUNTDOWN;}
+
 
     public static int getFrame(){return frame;}
     public static int getPrevFrame(){return prevFrame;}
@@ -274,9 +277,20 @@ public class SyncTimeline {
         setPlaybackDetached(false);
     }
 
+    /**
+     * Sets the current timeline mode, handling transitions between modes.
+     * When transitioning into REC from any other mode, note the start of the new session.
+     */
     public static void setCurrMode(TLMode mode, boolean releaseKeysIfNecessary){
-        if(currMode == mode)
+        if(currMode == mode) {
             return;
+        }
+
+        // If we are transitioning to REC (and were previously in a different mode),
+        // record where the new recording session's keyframes will begin.
+        if (currMode != TLMode.REC && mode == TLMode.REC) {
+            lastRecSessionStartIndex = getRecordedKeyframes().size();
+        }
 
         if(mode == TLMode.REC_COUNTDOWN){
             int totalFrames = getRecordedKeyframes().size();
@@ -285,7 +299,6 @@ public class SyncTimeline {
                 setCurrMode(TLMode.REC, true);
                 return;
             }
-            // Clamp countdown duration if fewer than 3 seconds (COUNTDOWN_DURATION_FRAMES) of frames exist
             countdownDurationFramesTotal = Math.min(countdownDurationFramesTotal, totalFrames);
             int targetStart = totalFrames - countdownDurationFramesTotal;
             setFrame(targetStart);
@@ -294,17 +307,21 @@ public class SyncTimeline {
                     " frames (" + (countdownDurationFramesTotal / 60.0f) + " seconds) countdown!");
         }
 
-        if(mode == TLMode.REC)
+        if(mode == TLMode.REC) {
             setFrame(getRecFrame());
+        }
 
+        currMode = mode; //ORDER IS VERY IMPORTANT HERE. isSomeFormOfPlayback has dependency below
+
+        // Freeze/unfreeze the server if needed
         IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
-        if(server != null)
-            server.tickRateManager().setFrozen(mode == TLMode.PLAYBACK);
+        if(server != null) {
+            server.tickRateManager().setFrozen(isSomeFormOfPlayback());
+        }
 
-        if(mode != TLMode.PLAYBACK && releaseKeysIfNecessary)
+        if(!isSomeFormOfPlayback() && releaseKeysIfNecessary) {
             InputsManager.releaseAllKeys();
-
-        currMode = mode;
+        }
     }
 
     public static void setPlaybackDetached(boolean value){
@@ -327,6 +344,51 @@ public class SyncTimeline {
             return null;
 
         return frames.get(frame);
+    }
+
+    /**
+     * Removes all keyframes that were recorded during the most recent recording session,
+     * i.e. from 'lastRecSessionStartIndex' up to the end of the timeline. Resets
+     * lastRecSessionStartIndex so that only one undo operation is allowed.
+     *
+     * @return A string describing how many frames were removed and what the new timeline range is.
+     */
+    public static String undoLastRecSession() {
+        // If we never recorded a session or haven't started a new one yet, do nothing.
+        if (lastRecSessionStartIndex == -1) {
+            return "No previous recording session to undo.";
+        }
+
+        // If the timeline size hasn't grown since we started last REC, nothing to remove.
+        if (lastRecSessionStartIndex >= recordedKeyframes.size()) {
+            lastRecSessionStartIndex = -1;
+            return "No frames were recorded after the last session start; nothing to undo.";
+        }
+
+        int originalSize = recordedKeyframes.size();
+        // Remove everything from lastRecSessionStartIndex to the end:
+        recordedKeyframes.subList(lastRecSessionStartIndex, originalSize).clear();
+
+        int framesRemoved = originalSize - lastRecSessionStartIndex;
+        // Reset the session start index to indicate we've used our "undo."
+        lastRecSessionStartIndex = -1;
+
+        // Ensure the current playback frame is still valid.
+        // If we ended up past the new end of the timeline, clamp it.
+        if (frame >= recordedKeyframes.size()) {
+            frame = recordedKeyframes.size() - 1;
+            if (frame < 0) {
+                frame = 0; // In case the timeline is now empty.
+            }
+        }
+
+        // Build a nice status message.
+        int newSize = recordedKeyframes.size();
+        int startFrame = 0;
+        int endFrame = newSize - 1;
+        return "Removed " + framesRemoved + " frames from timeline. " +
+                "New timeline range: " + startFrame + " - " + endFrame +
+                " (size=" + newSize + ")";
     }
 
     /**

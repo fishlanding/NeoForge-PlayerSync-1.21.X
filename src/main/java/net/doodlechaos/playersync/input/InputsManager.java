@@ -158,7 +158,7 @@ public class InputsManager {
 
 
         // If we are now in playback mode, poll more playback-specific controls:
-        if (mode == TLMode.PLAYBACK) {
+        if (SyncTimeline.isSomeFormOfPlayback()) {
             handlePlaybackOnlyControls(window);
         }
     }

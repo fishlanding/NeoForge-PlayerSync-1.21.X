@@ -32,7 +32,7 @@ public class MinecraftMixin {
     )
     private int redirectAdvanceTime(DeltaTracker.Timer timer, long timeMillis, boolean renderLevel) {
 
-        if (SyncTimeline.getMode() != TLMode.PLAYBACK && SyncTimeline.getMode() != TLMode.REC_COUNTDOWN)
+        if (!SyncTimeline.isSomeFormOfPlayback())
             return timer.advanceTime(timeMillis, renderLevel);
 
         if(SyncTimeline.isPlaybackDetached())
@@ -63,32 +63,7 @@ public class MinecraftMixin {
                 CountDownLatch latch = new CountDownLatch(1);
                 server.tickRateManager().stepGameIfPaused(1);
                 server.execute(() -> {
-                    // Retrieve the server-side player corresponding to the client player.
-/*                    if(mc.player != null){
-                        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(mc.player.getUUID());
-                        if (serverPlayer != null) {
-                            // Force-sync the position and orientation:
-                            // This method typically teleports the player, updating both position and rotation.
-                            SyncTimeline.allowEntityMixinFlag = true;
-                            serverPlayer.moveTo(
-                                    mc.player.getX(),
-                                    mc.player.getY(),
-                                    mc.player.getZ(),
-                                    mc.player.getYRot(),  // yaw
-                                    mc.player.getXRot()   // pitch
-                            );
-                            // Copy velocity (motion) from client to server.
-
-                            serverPlayer.setDeltaMovement(mc.player.getDeltaMovement());
-                            SyncTimeline.allowEntityMixinFlag = false;
-                            SLOGGER.info("Done setting server player");
-                            // If there are additional fields (like swing progress, health, etc.) that you need synchronized,
-                            // you would set those here as well.
-                        }
-                    }*/
-                    //SyncTimeline.allowTickServerFlag = true;
                     server.tickServer(()->false);
-                    //SyncTimeline.allowTickServerFlag = false;
                     latch.countDown();
                 });
                 try {
@@ -102,7 +77,7 @@ public class MinecraftMixin {
             i = 1;
         }
         SyncTimeline.updatePrevFrame(); //IMPORTANT: Immediately after I'm checking if the frame is dirty, then I update the prevFrame. This way, the inputs can be read and change the currFrame without that info being lost
-        //Updating the prevFrame must happen BEFORE I read the inputs from the player (which can modify the currFrame)
+                                        //Updating the prevFrame must happen BEFORE I read the inputs from the player (which can modify the currFrame)
 
         return i;
     }
