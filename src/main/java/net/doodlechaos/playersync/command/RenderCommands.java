@@ -2,6 +2,7 @@ package net.doodlechaos.playersync.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.doodlechaos.playersync.Config;
 import net.doodlechaos.playersync.VideoRenderer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -24,13 +25,13 @@ public class RenderCommands {
                         .then(Commands.argument("count", IntegerArgumentType.integer(0, 10))
                                 .executes(ctx -> {
                                     int count = IntegerArgumentType.getInteger(ctx, "count");
-                                    VideoRenderer.preFrameWaitCount = count;
+                                    Config.CONFIG.videoRenderPreFrameWaitCount.set(count);
                                     ctx.getSource().sendSystemMessage(Component.literal("set pre frame wait count to: " + count));
                                     return 1;
                                 })
                         )
                         .executes(ctx -> {
-                            ctx.getSource().sendSystemMessage(Component.literal("Curr preFrameWaitCount: " + VideoRenderer.preFrameWaitCount));
+                            ctx.getSource().sendSystemMessage(Component.literal("Curr preFrameWaitCount: " + Config.CONFIG.videoRenderPreFrameWaitCount.get()));
                             return 1;
                         })
                 )

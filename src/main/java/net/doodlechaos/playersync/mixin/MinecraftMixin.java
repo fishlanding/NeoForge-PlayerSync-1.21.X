@@ -1,5 +1,6 @@
 package net.doodlechaos.playersync.mixin;
 
+import net.doodlechaos.playersync.Config;
 import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.input.InputsManager;
 import net.doodlechaos.playersync.sync.AudioSync;
@@ -9,9 +10,7 @@ import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
-import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -88,13 +87,18 @@ public class MinecraftMixin {
     //At the end of runTick
     @Inject(method = "runTick", at = @At("TAIL"), cancellable = true)
     private void onEndRunTick(boolean renderLevel, CallbackInfo ci){
-        if(SyncTimeline.getMode() == SyncTimeline.TLMode.REC){
+        if(SyncTimeline.isRecording() && !SyncTimeline.skipRecordingFirstFrameFlag){
             SyncTimeline.CreateKeyframe();
+        }
+        if(SyncTimeline.skipRecordingFirstFrameFlag){
+            SyncTimeline.skipRecordingFirstFrameFlag = false;
+            SLOGGER.info("Skipping rec first frame");
+            return;
         }
 
         if(VideoRenderer.isRendering()){
             renderFrameWaitCounter++;
-            if(renderFrameWaitCounter > VideoRenderer.preFrameWaitCount){
+            if(renderFrameWaitCounter > Config.CONFIG.videoRenderPreFrameWaitCount.get()){
                 renderFrameWaitCounter = 0;
                 VideoRenderer.CaptureFrame();
                 SyncTimeline.scrubFrames(1);
@@ -110,12 +114,15 @@ public class MinecraftMixin {
         // If we are in REC_COUNTDOWN, check if the playhead has advanced beyond the last existing frame.
         // Because frames go from [0..size-1], "exactly 1 beyond existing" is 'size' itself.
         if (SyncTimeline.getMode() == SyncTimeline.TLMode.REC_COUNTDOWN) {
-            if (nextFrameNum > SyncTimeline.getRecordedKeyframes().size()) {
+            if (nextFrameNum >= SyncTimeline.getRecordedKeyframes().size()) {
                 // Now we are exactly one beyond the final existing keyframe -> switch to REC
                 SyncTimeline.setCurrMode(SyncTimeline.TLMode.REC, true);
                 SLOGGER.info("Finished rec_countdown. Transitioning to recording on frame: " + SyncTimeline.getFrame());
             }
         }
+
+        if(SyncTimeline.getMode() == TLMode.STOP_REC_NEXT_TICK && SyncTimeline.isTickFrame())
+            SyncTimeline.setCurrMode(TLMode.NONE, true);
 
         SyncTimeline.setFrame(nextFrameNum);
         SyncTimeline.framesToScrub = 0;

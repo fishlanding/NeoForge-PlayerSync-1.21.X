@@ -26,6 +26,9 @@ public class Config
     public final ModConfigSpec.ConfigValue<String> pathToFFMPEG;
     public final ModConfigSpec.ConfigValue<String> outputVideoPath;
 
+    public final ModConfigSpec.ConfigValue<Integer> recCountdownDurationFramesTotal;
+    public final ModConfigSpec.ConfigValue<Integer> videoRenderPreFrameWaitCount;
+
 
     // The constructor takes in a builder to define the config entries.
     private Config(ModConfigSpec.Builder builder) {
@@ -43,6 +46,16 @@ public class Config
                 .comment("Output Video Path")
                 .translation("playersync.outputVideoPath")
                 .define("outputVideoPath", "C:\\Users\\marky\\Downloads\\testRenderPlayerSync.mp4");
+
+        recCountdownDurationFramesTotal = builder
+                .comment("Frames for the rec countdown")
+                .translation("playersync.recCountdownDurationFramesTotal")
+                .define("recCountdownDurationFramesTotal", 3 * 60);
+
+        videoRenderPreFrameWaitCount = builder
+                .comment("Frames to hold each frame before capturing it for video")
+                .translation("playersync.videoRenderPreFrameWaitCount")
+                .define("recCountdownDurationFramesTotal", 0);
     }
 
     // Use a static block to build both the config instance and its spec.

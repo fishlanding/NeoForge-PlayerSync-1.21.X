@@ -9,9 +9,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.doodlechaos.playersync.sync.SyncTimeline.TLMode;
-
-import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 
 @Mixin(Entity.class)
 public class EntityMixin {
@@ -20,6 +17,15 @@ public class EntityMixin {
     @SuppressWarnings("ConstantConditions")
     @Inject(method = "setOldPosAndRot", at = @At("HEAD"), cancellable = true)
     private void onSetOldPosAndRot(CallbackInfo ci) {
+
+/*        if(SyncTimeline.getMode() == SyncTimeline.TLMode.REC_COUNTDOWN && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)){
+                if(SyncTimeline.isTickFrame() && SyncTimeline.getCountdownFramesRemaining() <= 3) //IMPORTANT: This line is neccessary for smooth transition from playback to recording
+                {
+                    ci.cancel();
+                    return;
+                }
+        }*/
+
         if (!SyncTimeline.allowEntityMixinFlag
                 && SyncTimeline.isSomeFormOfPlayback()
                 && !SyncTimeline.isPlaybackDetached()
@@ -32,6 +38,15 @@ public class EntityMixin {
     @SuppressWarnings("ConstantConditions")
     @Inject(method = "setPosRaw(DDD)V", at = @At("HEAD"), cancellable = true)
     private void onSetPosRaw(double x, double y, double z, CallbackInfo ci) {
+
+/*        if(SyncTimeline.getMode() == SyncTimeline.TLMode.REC_COUNTDOWN && ((Entity)(Object)this).getType().equals(EntityType.PLAYER)){
+            if(SyncTimeline.isTickFrame() && SyncTimeline.getCountdownFramesRemaining() <= 3) //IMPORTANT: This line is neccessary for smooth transition from playback to recording
+            {
+                ci.cancel();
+                return;
+            }
+        }*/
+
         if (!SyncTimeline.allowEntityMixinFlag
                 && SyncTimeline.isSomeFormOfPlayback()
                 && !SyncTimeline.isPlaybackDetached()

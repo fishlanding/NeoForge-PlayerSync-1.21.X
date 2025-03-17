@@ -3,6 +3,7 @@ package net.doodlechaos.playersync.sync;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.doodlechaos.playersync.Config;
 import net.doodlechaos.playersync.PlayerSync;
 import net.doodlechaos.playersync.VideoRenderer;
 import net.doodlechaos.playersync.input.InputsManager;
@@ -33,7 +34,7 @@ import static net.doodlechaos.playersync.PlayerSync.SLOGGER;
 @EventBusSubscriber(modid = PlayerSync.MOD_ID)
 public class SyncTimeline {
 
-    public enum TLMode {REC_COUNTDOWN, REC, PLAYBACK, NONE}
+    public enum TLMode {REC_COUNTDOWN, REC, STOP_REC_NEXT_TICK, PLAYBACK, NONE}
     private static TLMode currMode = TLMode.NONE;
     private static boolean playbackPaused = false;
     private static boolean playbackDetached = false;
@@ -42,8 +43,7 @@ public class SyncTimeline {
     private static int prevFrame = 0;
     public static void updatePrevFrame(){prevFrame = frame;}
 
-    //private static final int COUNTDOWN_DURATION_FRAMES = 3 * 60; // 3 seconds at 60 fps
-    public static int countdownDurationFramesTotal = 3 * 60;
+    //public static int countdownDurationFramesTotal = 3 * 60;
     private static int countdownStartFrame = 0;
     private static int lastRecSessionStartIndex = -1;
 
@@ -55,11 +55,19 @@ public class SyncTimeline {
     public static boolean isTickFrame() { return (getFrame() % 3) == 0;}
     public static boolean hasFrameChanged(){ return (getFrame() != getPrevFrame());}
     public static boolean isSomeFormOfPlayback(){return currMode == TLMode.PLAYBACK || currMode == TLMode.REC_COUNTDOWN;}
-
+    public static boolean isRecording(){return currMode == TLMode.REC || currMode == TLMode.STOP_REC_NEXT_TICK; }
 
     public static int getFrame(){return frame;}
     public static int getPrevFrame(){return prevFrame;}
     public static int getRecFrame(){ return getRecordedKeyframes().size();};
+    public static int getCountdownFramesRemaining(){
+        if(getMode() == TLMode.REC)
+            return 0;
+        if(getMode() != TLMode.REC_COUNTDOWN)
+            return 999999999;
+        int framesElapsed = getFrame() - countdownStartFrame;
+        return Config.CONFIG.recCountdownDurationFramesTotal.get() - framesElapsed;
+    }
 
     public static float getTickDelta(){ return (getFrame() % 3) / 3.0f;}
     public static float getPlayheadTime() {return getFrame() / 60.0f; }
@@ -69,7 +77,6 @@ public class SyncTimeline {
 
     public static Vector3f keyframeCamEulerDegrees = new Vector3f();
     public static boolean allowEntityMixinFlag = false;
-    public static boolean allowTickServerFlag = false;
 
     @SubscribeEvent
     public static void onRenderGuiOverlay(RenderGuiEvent.Post event) {
@@ -92,6 +99,9 @@ public class SyncTimeline {
             case REC:
                 modeStr = "REC";
                 break;
+            case STOP_REC_NEXT_TICK:
+                modeStr = "STOP_REC_NEXT_TICK";
+                break;
             case PLAYBACK:
                 modeStr = "PLAYBACK";
                 break;
@@ -113,15 +123,17 @@ public class SyncTimeline {
                     .append(String.format("Euler (degrees): X=%.2f, Y=%.2f, Z=%.2f\n", xDeg, yDeg, zDeg));
         }
 
-
         // Additional lines for certain modes
         if (currMode == TLMode.REC) {
             debugBuilder.append(String.format("recFrame: %d\n", getRecFrame()));
         }
+
         if (currMode == TLMode.PLAYBACK) {
+            // Use §e (yellow) if it's a tick frame, otherwise use §f (white)
+            String frameColor = isTickFrame() ? "§6" : "§f";
             debugBuilder.append(String.format(
-                    "detached: %s | playbackPaused: %s | frame: %d\n",
-                    playbackDetached, playbackPaused, frame
+                    "detached: %s | playbackPaused: %s | frame: %s%d§f\n",
+                    playbackDetached, playbackPaused, frameColor, frame
             ));
         }
 
@@ -227,8 +239,7 @@ public class SyncTimeline {
 
         // --- Handle the separate countdown text in the center of the screen ---
         if (currMode == TLMode.REC_COUNTDOWN) {
-            int framesElapsed = getFrame() - countdownStartFrame;
-            int framesLeft = countdownDurationFramesTotal - framesElapsed;
+            int framesLeft = getCountdownFramesRemaining();
             float countdownSeconds = framesLeft / 60.0f;
 
             // Remove the old transition here.
@@ -302,18 +313,19 @@ public class SyncTimeline {
                 SLOGGER.info("No frames recorded, starting recording immediately.");
                 setCurrMode(TLMode.REC, true);
             } else{
-                countdownDurationFramesTotal = Math.min(countdownDurationFramesTotal, totalFrames);
+                int countdownDurationFramesTotal = Math.min(Config.CONFIG.recCountdownDurationFramesTotal.get(), totalFrames);
                 int targetStart = totalFrames - countdownDurationFramesTotal;
                 setFrame(targetStart);
                 countdownStartFrame = targetStart;
                 SLOGGER.info("Starting recording countdown with " + countdownDurationFramesTotal +
                         " frames (" + (countdownDurationFramesTotal / 60.0f) + " seconds) countdown!");
             }
-
         }
 
         if(mode == TLMode.REC) {
+            skipRecordingFirstFrameFlag = true;
             setFrame(getRecFrame());
+            InputsManager.clearRecordedInputsBuffer();
         }
 
         currMode = mode; //ORDER IS VERY IMPORTANT HERE. isSomeFormOfPlayback has dependency below
@@ -396,6 +408,7 @@ public class SyncTimeline {
                 " (size=" + newSize + ")";
     }
 
+    public static boolean skipRecordingFirstFrameFlag = false;
     /**
      * Records a new keyframe that captures both player and input data.
      */
@@ -411,6 +424,9 @@ public class SyncTimeline {
         if(frame == 0){
             LOGGER.error("playheadIndex: " + frame + " tickDelta: " + tickDelta);
         }
+
+        //if(getMode() == TLMode.STOP_REC_NEXT_TICK)
+        //    tickDelta = 0;
 
         long frameNumber = recordedKeyframes.size(); //getFrame();
 
@@ -450,15 +466,11 @@ public class SyncTimeline {
         if(player == null)
             return;
 
-        if(frame >= getRecordedKeyframes().size()){
+        if(VideoRenderer.isRendering() && frame >= getRecordedKeyframes().size() - 1){
             playbackPaused = true;
 
-            if(VideoRenderer.isRendering()){
-                VideoRenderer.FinishRendering();
-                player.sendSystemMessage(Component.literal("Rendering complete"));
-            }
-
-            return;
+            VideoRenderer.FinishRendering();
+            player.sendSystemMessage(Component.literal("Rendering complete"));
         }
 
         if(keyframe == null)
@@ -487,12 +499,33 @@ public class SyncTimeline {
     public static void clearRecordedKeyframes(){
         recordedKeyframes.clear();
     }
+
+    //TODO: This needs to prune everything AFTER the next tick frame, not including that tick frame. If we're already on a tick frame, then just clear every keyframe after it
     public static void pruneKeyframesAfterPlayhead(){
+        // If there are no keyframes after the current frame, do nothing.
         if (recordedKeyframes.size() <= frame + 1) {
             return;
         }
-        recordedKeyframes.subList(frame + 1, recordedKeyframes.size()).clear();
+
+        int pruneIndex;
+        if (isTickFrame()) {
+            // If we're on a tick frame, prune everything after the current frame.
+            pruneIndex = frame + 1;
+        } else {
+            // Calculate the next tick frame (tick frames occur every 3 frames)
+            int nextTickFrame = ((frame / 3) + 1) * 3;
+            // Prune everything AFTER the next tick frame (so keep the tick frame)
+            pruneIndex = nextTickFrame + 1;
+        }
+
+        // If there are no keyframes after the prune index, do nothing.
+        if (pruneIndex >= recordedKeyframes.size())
+            return;
+
+        // Clear all keyframes starting from the calculated prune index.
+        recordedKeyframes.subList(pruneIndex, recordedKeyframes.size()).clear();
     }
+
 
     public static void SaveRecToFile(String recName) {
         File recFile = new File(PlayerSyncFolderUtils.getPlayerSyncFolder(), recName);

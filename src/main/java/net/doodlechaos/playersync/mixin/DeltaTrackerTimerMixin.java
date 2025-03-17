@@ -30,7 +30,7 @@ public class DeltaTrackerTimerMixin {
         if(!SyncTimeline.isSomeFormOfPlayback())
             return;
 
-        float customDelta = SyncTimeline.getTickDelta(); //PlayerSync.myTickDelta; //
+        float customDelta = SyncTimeline.getTickDelta();
 
         // then cancel the original method and set the return value.
         if (customDelta >= 0) {

@@ -4,5 +4,7 @@
   "item.examplemod.example_item": "Example Item",
   "playersync.inputAudioOgg": "Input Audio Ogg",
   "playersync.pathToFFMPEG": "Path To FFMPEG",
-  "playersync.outputVideoPath": "Output Video Path"
+  "playersync.outputVideoPath": "Output Video Path",
+  "playersync.recCountdownDurationFramesTotal": "Rec Countdown Frames Total",
+  "playersync.videoRenderPreFrameWaitCount": "Video Render Pre-Frame Wait Count"
 }

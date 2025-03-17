@@ -3,6 +3,7 @@ package net.doodlechaos.playersync.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.doodlechaos.playersync.Config;
 import net.doodlechaos.playersync.sync.SyncTimeline;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -76,13 +77,13 @@ public class RecordCommands {
                         .then(Commands.argument("seconds", IntegerArgumentType.integer(3))
                             .executes(ctx -> {
                                 int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
-                                SyncTimeline.countdownDurationFramesTotal = 60 * seconds;
-                                ctx.getSource().sendSystemMessage(Component.literal("Set countdown duration frames to: " + SyncTimeline.countdownDurationFramesTotal));
+                                Config.CONFIG.recCountdownDurationFramesTotal.set(60 * seconds);
+                                ctx.getSource().sendSystemMessage(Component.literal("Set countdown duration frames to: " + Config.CONFIG.recCountdownDurationFramesTotal.get()));
                                 return 1;
                             })
                         )
                         .executes(ctx -> {
-                            ctx.getSource().sendSystemMessage(Component.literal("Current countdown duration frames: " + SyncTimeline.countdownDurationFramesTotal));
+                            ctx.getSource().sendSystemMessage(Component.literal("Current countdown duration frames: " + Config.CONFIG.recCountdownDurationFramesTotal.get()));
                             return 1;
                         })
 

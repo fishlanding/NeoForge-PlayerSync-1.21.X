@@ -125,10 +125,14 @@ public class InputsManager {
         boolean rDown = isKeyPressed(window, GLFW.GLFW_KEY_R);
         if (rDown && !wasRKeyDown) {
             // single-press toggle
-            if (mode == TLMode.REC || mode == TLMode.REC_COUNTDOWN) {
+            if (mode == TLMode.REC_COUNTDOWN) {
                 // Turn off recording
                 SyncTimeline.setCurrMode(TLMode.NONE, true);
-            } else if (mode == TLMode.NONE) {
+            }
+            else if(mode == TLMode.REC){
+                SyncTimeline.setCurrMode(TLMode.STOP_REC_NEXT_TICK, false);
+            }
+            else if (mode == TLMode.NONE) {
                 // Turn on recording (with countdown)
                 SyncTimeline.setCurrMode(TLMode.REC_COUNTDOWN, true);
             }
