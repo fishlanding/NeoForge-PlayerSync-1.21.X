@@ -331,10 +331,10 @@ public class SyncTimeline {
         currMode = mode; //ORDER IS VERY IMPORTANT HERE. isSomeFormOfPlayback has dependency below
 
         // Freeze/unfreeze the server if needed
-        IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
-        if(server != null) {
-            server.tickRateManager().setFrozen(isSomeFormOfPlayback());
-        }
+    //    IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+    //    if(server != null) {
+    //        server.tickRateManager().setFrozen(isSomeFormOfPlayback());
+    //    }
 
         if(!isSomeFormOfPlayback() && releaseKeysIfNecessary) {
             InputsManager.releaseAllKeys();

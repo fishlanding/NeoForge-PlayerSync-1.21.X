@@ -55,7 +55,7 @@ public class Config
         videoRenderPreFrameWaitCount = builder
                 .comment("Frames to hold each frame before capturing it for video")
                 .translation("playersync.videoRenderPreFrameWaitCount")
-                .define("recCountdownDurationFramesTotal", 0);
+                .define("videoRenderPreFrameWaitCount", 0);
     }
 
     // Use a static block to build both the config instance and its spec.
